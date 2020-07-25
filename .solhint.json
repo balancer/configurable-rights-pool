@@ -4,8 +4,8 @@
       "mark-callable-contracts": "off",
       "event-name-camelcase": "off",
       "const-name-snakecase": "off",
-      "max-line-length": ["warn", 120],
-      "indent": ["error", 4]
+      "compiler-version": "off",
+      "max-line-length": ["warn", 120]
     }
   }
   
