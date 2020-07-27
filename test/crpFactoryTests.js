@@ -1,3 +1,5 @@
+/* eslint-env es6 */
+
 const BFactory = artifacts.require('BFactory');
 const ConfigurableRightsPool = artifacts.require('ConfigurableRightsPool');
 const CRPFactory = artifacts.require('CRPFactory');

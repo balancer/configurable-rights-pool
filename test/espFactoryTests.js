@@ -1,3 +1,5 @@
+/* eslint-env es6 */
+
 const BFactory = artifacts.require('BFactory');
 const ElasticSupplyPool = artifacts.require('ElasticSupplyPool');
 const ESPFactory = artifacts.require('ESPFactory');

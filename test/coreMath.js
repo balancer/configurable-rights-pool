@@ -1,3 +1,5 @@
+/* eslint-env es6 */
+
 const BalancerSafeMathMock = artifacts.require('BalancerSafeMathMock');
 const { BN, constants, expectRevert } = require('@openzeppelin/test-helpers');
 const { expect } = require('chai');
