@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity 0.6.6;
+pragma solidity ^0.6.6;
 
 /**
  * @dev Contract module which provides a basic access control mechanism, where
@@ -27,7 +27,7 @@ contract BalancerOwnable {
     /**
      * @dev Throws if called by any account other than the owner.
      */
-    modifier _onlyOwner_() {
+    modifier onlyOwner() {
         require(_owner == msg.sender, "ERR_NOT_CONTROLLER");
         _;
     }
@@ -42,22 +42,25 @@ contract BalancerOwnable {
     }
 
     /**
-     * @dev Returns the address of the current owner.
+     * @notice Transfers ownership of the contract to a new account (`newOwner`).
+     *         Can only be called by the current owner
+     * @dev external for gas optimization
+     * @param newOwner - address of new owner
      */
-    function getController() public view returns (address) {
-        return _owner;
-    }
-
-    /**
-     * @dev Transfers ownership of the contract to a new account (`newOwner`).
-     *      Can only be called by the current owner.
-     *      Would be virtual (in Solidity 0.6)
-     */
-    function setController(address newOwner) public _onlyOwner_ {
+    function setController(address newOwner) external onlyOwner {
         require(newOwner != address(0), "ERR_ZERO_ADDRESS");
 
         emit OwnershipTransferred(_owner, newOwner);
 
         _owner = newOwner;
+    }
+
+    /**
+     * @notice Returns the address of the current owner
+     * @dev external for gas optimization
+     * @return address - of the owner (AKA controller)
+     */
+    function getController() external view returns (address) {
+        return _owner;
     }
 }

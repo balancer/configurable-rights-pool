@@ -25,6 +25,7 @@ contract('ESPFactory', async (accounts) => {
     const startWeights = [toWei('12'), toWei('1.5')];
     const startBalances = [toWei('80000'), toWei('10000')];
     const SYMBOL = 'ESP';
+    const LONG_SYMBOL = 'ESP012345678901234567890123456789';
     const permissions = {
         canPauseSwapping: false,
         canChangeSwapFee: true,
@@ -98,16 +99,17 @@ contract('ESPFactory', async (accounts) => {
             espFactory.newEsp(
                 bFactory.address,
                 SYMBOL,
-                [AMPL, USDC, DAI],
+                [USDC, DAI],
                 startBalances,
                 badStartWeights,
                 10 ** 15,
                 permissions,
             ),
+            'ERR_START_WEIGHTS_MISMATCH'
         );
     });
 
-    it('should not be able to create with mismatched start Weights', async () => {
+    it('should not be able to create with mismatched start Balances', async () => {
         const badStartBalances = [toWei('80000'), toWei('40'), toWei('10000'), toWei('5000')];
 
         await truffleAssert.reverts(
@@ -120,6 +122,22 @@ contract('ESPFactory', async (accounts) => {
                 10 ** 15,
                 permissions,
             ),
+            'ERR_START_BALANCES_MISMATCH'
+        );
+    });
+
+    it('should not be able to create with a long symbol', async () => {
+        await truffleAssert.reverts(
+            espFactory.newEsp(
+                bFactory.address,
+                LONG_SYMBOL,
+                [USDC, DAI],
+                startBalances,
+                startWeights,
+                10 ** 15,
+                permissions,
+            ),
+            'ERR_INVALID_PARAMETERS'
         );
     });
 
@@ -134,6 +152,7 @@ contract('ESPFactory', async (accounts) => {
                 0,
                 permissions,
             ),
+            'ERR_INVALID_SWAP_FEE'
         );
     });
 
@@ -152,6 +171,7 @@ contract('ESPFactory', async (accounts) => {
                 invalidSwapFee,
                 permissions,
             ),
+            'ERR_INVALID_SWAP_FEE'
         );
     });
 });

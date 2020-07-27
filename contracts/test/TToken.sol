@@ -1,5 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity 0.6.6;
+pragma solidity ^0.6.6;
+
+// Core contract; can't be changed. So disable solhint (reminder for v2)
+
+/* solhint-disable private-vars-leading-underscore */
+/* solhint-disable reason-string */
+/* solhint-disable func-order */
 
 // Test Token
 

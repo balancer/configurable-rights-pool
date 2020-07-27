@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity 0.6.6;
+pragma solidity ^0.6.6;
 
 // Needed to handle structures externally
 pragma experimental ABIEncoderV2;
@@ -59,23 +59,23 @@ library RightsManager {
     /**
      * @notice Externally check permissions using the Enum
      * @param self - Rights struct containing the permissions
-     * @param _permission - The permission to check
+     * @param permission - The permission to check
      * @return Boolean true if it has the permission
      */
-    function hasPermission(Rights calldata self, Permissions _permission) external pure returns (bool) {
-        if (Permissions.PAUSE_SWAPPING == _permission) {
+    function hasPermission(Rights calldata self, Permissions permission) external pure returns (bool) {
+        if (Permissions.PAUSE_SWAPPING == permission) {
             return self.canPauseSwapping;
         }
-        else if (Permissions.CHANGE_SWAP_FEE == _permission) {
+        else if (Permissions.CHANGE_SWAP_FEE == permission) {
             return self.canChangeSwapFee;
         }
-        else if (Permissions.CHANGE_WEIGHTS == _permission) {
+        else if (Permissions.CHANGE_WEIGHTS == permission) {
             return self.canChangeWeights;
         }
-        else if (Permissions.ADD_REMOVE_TOKENS == _permission) {
+        else if (Permissions.ADD_REMOVE_TOKENS == permission) {
             return self.canAddRemoveTokens;
         }
-        else if (Permissions.WHITELIST_LPS == _permission) {
+        else if (Permissions.WHITELIST_LPS == permission) {
             return self.canWhitelistLPs;
         }
     }

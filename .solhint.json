@@ -1,11 +1,21 @@
 {
     "extends": "solhint:recommended",
     "rules": {
+      "code-complexity": ["warn", 6],
+      "function-max-lines": ["warn", 60],
+      "max-line-length": ["error", 120],
+      "payable-fallback": "error",
+      "reason-string": ["error", {"maxLength":32}],
+      "constructor-syntax": "error",
+      "func-param-name-mixedcase": "warn",
+      "modifier-name-mixedcase": "warn",
+      "private-vars-leading-underscore": ["error", {"strict":false}],
+      "func-order": "warn",
+      "imports-on-top": "error",
       "mark-callable-contracts": "off",
-      "event-name-camelcase": "off",
-      "const-name-snakecase": "off",
-      "compiler-version": "off",
-      "max-line-length": ["warn", 120]
+      "check-send-result": "error",
+      "compiler-version": ["error", "^0.6.0"],
+      "reentrancy": "error"
     }
   }
   

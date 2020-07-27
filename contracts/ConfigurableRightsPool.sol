@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity 0.6.6;
+pragma solidity ^0.6.6;
 
 // Needed to handle structures externally
 pragma experimental ABIEncoderV2;
@@ -16,8 +16,6 @@ import "./utils/BalancerOwnable.sol";
 // Libraries
 import { RightsManager } from "../libraries/RightsManager.sol";
 import "../libraries/SmartPoolManager.sol";
-import "../libraries/BalancerSafeMath.sol";
-import "../libraries/BalancerConstants.sol";
 
 // Contracts
 
@@ -76,19 +74,19 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
 
     // Anonymous logger event - can only be filtered by contract address
 
-    event LOG_CALL(
+    event LogCall(
         bytes4  indexed sig,
         address indexed caller,
         bytes data
     ) anonymous;
 
-    event LOG_JOIN(
+    event LogJoin(
         address indexed caller,
         address indexed tokenIn,
         uint tokenAmountIn
     );
 
-    event LOG_EXIT(
+    event LogExit(
         address indexed caller,
         address indexed tokenOut,
         uint tokenAmountOut
@@ -96,13 +94,13 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
 
     // Modifiers
 
-    modifier _logs_() {
-        emit LOG_CALL(msg.sig, msg.sender, msg.data);
+    modifier logs() {
+        emit LogCall(msg.sig, msg.sender, msg.data);
         _;
     }
 
     // Mark functions that require delegation to the underlying Pool
-    modifier _needsBPool_() {
+    modifier needsBPool() {
         require(address(bPool) != address(0), "ERR_NOT_CREATED");
         _;
     }
@@ -117,7 +115,7 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
     /**
      * @notice Construct a new Configurable Rights Pool (wrapper around BPool)
      * @param factoryAddress - the BPoolFactory used to create the underlying pool
-     * @param symbol - Token symbol
+     * @param tokenSymbolString - Token symbol (named thus to avoid shadowing)
      * @param tokens - list of tokens to include
      * @param startBalances - initial token balances
      * @param startWeights - initial token weights
@@ -127,7 +125,7 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
      */
     constructor(
         address factoryAddress,
-        string memory symbol,
+        string memory tokenSymbolString,
         address[] memory tokens,
         uint[] memory startBalances,
         uint[] memory startWeights,
@@ -135,7 +133,7 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
         RightsManager.Rights memory rights
     )
         public
-        PCToken(symbol)
+        PCToken(tokenSymbolString)
     {
         require(tokens.length >= BalancerConstants.MIN_ASSET_LIMIT, "ERR_TOO_FEW_TOKENS");
 
@@ -155,6 +153,8 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
         _swapFee = swapFee;
         _minimumWeightChangeBlockPeriod = DEFAULT_MIN_WEIGHT_CHANGE_BLOCK_PERIOD;
         _addTokenTimeLockInBlocks = DEFAULT_ADD_TOKEN_TIME_LOCK_IN_BLOCKS;
+        // Initializing unnecessarily for documentation (0 means no gradual weight change has been initiated)
+        _startBlock = 0;
         _rights = rights;
     }
 
@@ -193,13 +193,13 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
      *      For instance canPauseSwapping is 0; canChangeWeights is 2
      * @return token boolean true if we have the given permission
     */
-    function hasPermission(RightsManager.Permissions _permission)
+    function hasPermission(RightsManager.Permissions permission)
         external
         view
         virtual
         returns(bool)
     {
-        return RightsManager.hasPermission(_rights, _permission);
+        return RightsManager.hasPermission(_rights, permission);
     }
 
     /**
@@ -210,8 +210,8 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
     function getDenormalizedWeight(address token)
         external
         view
-        _viewlock_
-        _needsBPool_
+        viewlock
+        needsBPool
         returns (uint)
     {
         return bPool.getDenormalizedWeight(token);
@@ -224,10 +224,10 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
      */
     function setSwapFee(uint swapFee)
         external
-        _logs_
-        _lock_
-        _onlyOwner_
-        _needsBPool_
+        logs
+        lock
+        onlyOwner
+        needsBPool
         virtual
     {
         require(_rights.canChangeSwapFee, "ERR_NOT_CONFIGURABLE_SWAP_FEE");
@@ -255,9 +255,9 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
      */
     function isPublicSwap()
         external
-        _logs_
-        _lock_
-        _needsBPool_
+        logs
+        lock
+        needsBPool
         virtual
         returns (bool)
     {
@@ -275,10 +275,10 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
      */
     function setPublicSwap(bool publicSwap)
         external
-        _logs_
-        _lock_
-        _onlyOwner_
-        _needsBPool_
+        logs
+        lock
+        onlyOwner
+        needsBPool
         virtual
     {
         require(_rights.canPauseSwapping, "ERR_NOT_PAUSABLE_SWAP");
@@ -308,6 +308,8 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
         uint addTokenTimeLockInBlocks
     )
         external
+        logs
+        lock
         virtual
         returns (ConfigurableRightsPool)
     {
@@ -325,6 +327,9 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
         require(block.number >= _startBlock, "ERR_START_BLOCK");
         require(initialSupply > 0, "ERR_INIT_SUPPLY");
 
+        // There is technically reentrancy here, since we're making external calls and
+        //   then transferring tokens. However, the external calls are all to the underlying BPool
+
         // Deploy new BPool
         bPool = bFactory.newBPool();
 
@@ -336,10 +341,12 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
             uint bal = _startBalances[i];
             uint denorm = _startWeights[i];
 
-            bool xfer = IERC20(t).transferFrom(msg.sender, address(this), bal);
-            require(xfer, "ERR_ERC20_FALSE");
+            bool returnValue = IERC20(t).transferFrom(msg.sender, address(this), bal);
+            require(returnValue, "ERR_ERC20_FALSE");
 
-            IERC20(t).approve(address(bPool), uint(-1));
+            returnValue = IERC20(t).approve(address(bPool), uint(-1));
+            require(returnValue, "ERR_ERC20_FALSE");
+
             // Note that this will actually duplicate the array of tokens
             //   This contract has _tokens, and so does the underlying pool
             // Binding pushes a token to the end of the underlying pool's array
@@ -366,14 +373,17 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
      */
     function createPool(uint initialSupply)
         external
-        _logs_
-        _lock_
+        logs
+        lock
         virtual
         returns (ConfigurableRightsPool)
     {
         require(address(bPool) == address(0), "ERR_IS_CREATED");
         require(block.number >= _startBlock, "ERR_START_BLOCK");
         require(initialSupply > 0, "ERR_INIT_SUPPLY");
+
+        // There is technically reentrancy here, since we're making external calls and
+        //   then transferring tokens. However, the external calls are all to the underlying BPool
 
         // Deploy new BPool
         bPool = bFactory.newBPool();
@@ -386,10 +396,12 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
             uint bal = _startBalances[i];
             uint denorm = _startWeights[i];
 
-            bool xfer = IERC20(t).transferFrom(msg.sender, address(this), bal);
-            require(xfer, "ERR_ERC20_FALSE");
+            bool returnValue = IERC20(t).transferFrom(msg.sender, address(this), bal);
+            require(returnValue, "ERR_ERC20_FALSE");
 
-            IERC20(t).approve(address(bPool), uint(-1));
+            returnValue = IERC20(t).approve(address(bPool), uint(-1));
+            require(returnValue, "ERR_ERC20_FALSE");
+
             // Note that this will actually duplicate the array of tokens
             //   This contract has _tokens, and so does the underlying pool
             // Binding pushes a token to the end of the underlying pool's array
@@ -420,10 +432,10 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
     */
     function updateWeight(address token, uint newWeight)
         external
-        _logs_
-        _lock_
-        _onlyOwner_
-        _needsBPool_
+        logs
+        lock
+        onlyOwner
+        needsBPool
         virtual
     {
         require(_rights.canChangeWeights, "ERR_NOT_CONFIGURABLE_WEIGHTS");
@@ -451,13 +463,15 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
         uint endBlock
     )
         external
-        _logs_
-        _lock_
-        _onlyOwner_
-        _needsBPool_
+        logs
+        lock
+        onlyOwner
+        needsBPool
         virtual
     {
         require(_rights.canChangeWeights, "ERR_NOT_CONFIGURABLE_WEIGHTS");
+        // Must specify weights for all tokens
+        require(newWeights.length == _tokens.length, "ERR_START_WEIGHTS_MISMATCH");
 
         // Delegate to library to save space
 
@@ -488,9 +502,9 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
     */
     function pokeWeights()
         external
-        _logs_
-        _lock_
-        _needsBPool_
+        logs
+        lock
+        needsBPool
         virtual
     {
         require(_rights.canChangeWeights, "ERR_NOT_CONFIGURABLE_WEIGHTS");
@@ -520,10 +534,10 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
         uint denormalizedWeight
     )
         external
-        _logs_
-        _lock_
-        _onlyOwner_
-        _needsBPool_
+        logs
+        lock
+        onlyOwner
+        needsBPool
         virtual
     {
         require(_rights.canAddRemoveTokens, "ERR_CANNOT_ADD_REMOVE_TOKENS");
@@ -546,10 +560,10 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
      */
     function applyAddToken()
         external
-        _logs_
-        _lock_
-        _onlyOwner_
-        _needsBPool_
+        logs
+        lock
+        onlyOwner
+        needsBPool
         virtual
     {
         require(_rights.canAddRemoveTokens, "ERR_CANNOT_ADD_REMOVE_TOKENS");
@@ -569,10 +583,10 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
      */
     function removeToken(address token)
         external
-        _logs_
-        _lock_
-        _onlyOwner_
-        _needsBPool_
+        logs
+        lock
+        onlyOwner
+        needsBPool
     {
         require(_rights.canAddRemoveTokens, "ERR_CANNOT_ADD_REMOVE_TOKENS");
 
@@ -592,11 +606,11 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
      */
     function joinPool(uint poolAmountOut, uint[] calldata maxAmountsIn)
          external
-        _logs_
-        _lock_
-        _needsBPool_
+        logs
+        lock
+        needsBPool
     {
-        require(_rights.canWhitelistLPs == false || _liquidityProviderWhitelist[msg.sender],
+        require(!_rights.canWhitelistLPs || _liquidityProviderWhitelist[msg.sender],
                 "ERR_NOT_ON_WHITELIST");
 
         // Delegate to library to save space
@@ -616,7 +630,7 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
             address t = _tokens[i];
             uint tokenAmountIn = actualAmountsIn[i];
 
-            emit LOG_JOIN(msg.sender, t, tokenAmountIn);
+            emit LogJoin(msg.sender, t, tokenAmountIn);
 
             _pullUnderlying(t, msg.sender, tokenAmountIn);
         }
@@ -633,9 +647,9 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
      */
     function exitPool(uint poolAmountIn, uint[] calldata minAmountsOut)
         external
-        _logs_
-        _lock_
-        _needsBPool_
+        logs
+        lock
+        needsBPool
     {
         // Delegate to library to save space
 
@@ -658,7 +672,7 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
             address t = _tokens[i];
             uint tokenAmountOut = actualAmountsOut[i];
 
-            emit LOG_EXIT(msg.sender, t, tokenAmountOut);
+            emit LogExit(msg.sender, t, tokenAmountOut);
 
             _pushUnderlying(t, msg.sender, tokenAmountOut);
         }
@@ -679,12 +693,12 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
         uint minPoolAmountOut
     )
         external
-        _logs_
-        _lock_
-        _needsBPool_
+        logs
+        lock
+        needsBPool
         returns (uint poolAmountOut)
     {
-        require(_rights.canWhitelistLPs == false || _liquidityProviderWhitelist[msg.sender],
+        require(!_rights.canWhitelistLPs || _liquidityProviderWhitelist[msg.sender],
                 "ERR_NOT_ON_WHITELIST");
 
         // Delegate to library to save space
@@ -697,7 +711,7 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
                             minPoolAmountOut
                         );
 
-        emit LOG_JOIN(msg.sender, tokenIn, tokenAmountIn);
+        emit LogJoin(msg.sender, tokenIn, tokenAmountIn);
 
         _mintPoolShare(poolAmountOut);
         _pushPoolShare(msg.sender, poolAmountOut);
@@ -721,12 +735,12 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
         uint maxAmountIn
     )
         external
-        _logs_
-        _lock_
-        _needsBPool_
+        logs
+        lock
+        needsBPool
         returns (uint tokenAmountIn)
     {
-        require(_rights.canWhitelistLPs == false || _liquidityProviderWhitelist[msg.sender],
+        require(!_rights.canWhitelistLPs || _liquidityProviderWhitelist[msg.sender],
                 "ERR_NOT_ON_WHITELIST");
 
         // Delegate to library to save space
@@ -739,7 +753,7 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
                             maxAmountIn
                         );
 
-        emit LOG_JOIN(msg.sender, tokenIn, tokenAmountIn);
+        emit LogJoin(msg.sender, tokenIn, tokenAmountIn);
 
         _mintPoolShare(poolAmountOut);
         _pushPoolShare(msg.sender, poolAmountOut);
@@ -763,9 +777,9 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
         uint minAmountOut
     )
         external
-        _logs_
-        _lock_
-        _needsBPool_
+        logs
+        lock
+        needsBPool
         returns (uint tokenAmountOut)
     {
         // Delegate to library to save space
@@ -784,7 +798,7 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
 
         tokenAmountOut = amountOut;
 
-        emit LOG_EXIT(msg.sender, tokenOut, tokenAmountOut);
+        emit LogExit(msg.sender, tokenOut, tokenAmountOut);
 
         _pullPoolShare(msg.sender, poolAmountIn);
         _burnPoolShare(pAiAfterExitFee);
@@ -809,9 +823,9 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
         uint maxPoolAmountIn
     )
         external
-        _logs_
-        _lock_
-        _needsBPool_
+        logs
+        lock
+        needsBPool
         returns (uint poolAmountIn)
     {
         // Delegate to library to save space
@@ -830,7 +844,7 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
 
         poolAmountIn = amountIn;
 
-        emit LOG_EXIT(msg.sender, tokenOut, tokenAmountOut);
+        emit LogExit(msg.sender, tokenOut, tokenAmountOut);
 
         _pullPoolShare(msg.sender, poolAmountIn);
         _burnPoolShare(pAiAfterExitFee);
@@ -866,9 +880,9 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
      */
     function whitelistLiquidityProvider(address provider)
         external
-        _onlyOwner_
-        _lock_
-        _logs_
+        onlyOwner
+        lock
+        logs
     {
         require(_rights.canWhitelistLPs, "ERR_CANNOT_WHITELIST_LPS");
         require(provider != address(0), "ERR_INVALID_ADDRESS");
@@ -886,7 +900,7 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
     }
 
     // Rebind BPool and pull tokens from address
-    function _pullUnderlying(address erc20, address from, uint amount) internal _needsBPool_ {
+    function _pullUnderlying(address erc20, address from, uint amount) internal needsBPool {
         // Gets current Balance of token i, Bi, and weight of token i, Wi, from BPool.
         uint tokenBalance = bPool.getBalance(erc20);
         uint tokenWeight = bPool.getDenormalizedWeight(erc20);
@@ -897,7 +911,7 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
     }
 
     // Rebind BPool and push tokens to address
-    function _pushUnderlying(address erc20, address to, uint amount) internal _needsBPool_ {
+    function _pushUnderlying(address erc20, address to, uint amount) internal needsBPool {
         // Gets current Balance of token i, Bi, and weight of token i, Wi, from BPool.
         uint tokenBalance = bPool.getBalance(erc20);
         uint tokenWeight = bPool.getDenormalizedWeight(erc20);
@@ -928,27 +942,28 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
     // "Public" versions that can safely be called from SmartPoolManager
     // If called from external accounts, will fail if not controller
     // Allows the contract itself to call them internally
+    // Tools suggest they should be external - but they must be public!
 
-    function _mintPoolShareFromLib(uint amount) public {
-        require (msg.sender == getController() || msg.sender == address(this), "ERR_NOT_CONTROLLER");
+    function mintPoolShareFromLib(uint amount) public {
+        require (msg.sender == this.getController() || msg.sender == address(this), "ERR_NOT_CONTROLLER");
 
         _mint(amount);
     }
 
-    function _pushPoolShareFromLib(address to, uint amount) public {
-        require (msg.sender == getController() || msg.sender == address(this), "ERR_NOT_CONTROLLER");
+    function pushPoolShareFromLib(address to, uint amount) public {
+        require (msg.sender == this.getController() || msg.sender == address(this), "ERR_NOT_CONTROLLER");
 
         _push(to, amount);
     }
 
-    function _pullPoolShareFromLib(address from, uint amount) public  {
-        require (msg.sender == getController() || msg.sender == address(this), "ERR_NOT_CONTROLLER");
+    function pullPoolShareFromLib(address from, uint amount) public  {
+        require (msg.sender == this.getController() || msg.sender == address(this), "ERR_NOT_CONTROLLER");
 
         _pull(from, amount);
     }
 
-    function _burnPoolShareFromLib(uint amount) public  {
-        require (msg.sender == getController() || msg.sender == address(this), "ERR_NOT_CONTROLLER");
+    function burnPoolShareFromLib(uint amount) public  {
+        require (msg.sender == this.getController() || msg.sender == address(this), "ERR_NOT_CONTROLLER");
 
         _burn(amount);
     }

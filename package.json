@@ -6,21 +6,22 @@
     "description": "Smart pool template for Liquidity Bootstrapping Pools",
     "scripts": {
         "compile": "truffle compile",
-        "testrpc": "ganache-cli --deterministic --defaultBalanceEther 500 --gasLimit 100000000 --allowUnlimitedContractSize",
+        "testrpc": "ganache-cli --deterministic --defaultBalanceEther 500 --gasLimit 100000000",
         "test": "truffle test",
         "test:verbose": "VERBOSE=true truffle test",
         "coverage": "yarn solidity-coverage",
         "lint": "eslint .",
-        "lint:contracts": "solhint contracts/*.sol"
+        "lint:contracts": "solhint contracts/**/*.sol",
+        "lint:libraries": "solhint libraries/*.sol"
     },
     "repository": {
         "type": "git",
-        "url": "git+https://github.com/balancer-labs/smart-pools.git"
+        "url": "git+https://github.com/balancer-labs/configurable-rights-pool.git"
     },
     "bugs": {
-        "url": "https://github.com/balancer-labs/smart-pools/issues"
+        "url": "https://github.com/balancer-labs/configurable-rights-pool/issues"
     },
-    "homepage": "https://github.com/balancer-labs/smart-pools#readme",
+    "homepage": "https://github.com/balancer-labs/configurable-rights-pool#readme",
     "devDependencies": {
         "@openzeppelin/test-helpers": "^0.5.5",
         "chai": "^4.2.0",

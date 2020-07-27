@@ -167,6 +167,7 @@ contract('configurableWeightsUMA', async (accounts) => {
 
             it('Should be able to pokeWeights()', async () => {
                 let i;
+                const endWeights = [toWei('1'), toWei('29'), toWei('10')];
 
                 for (i = 0; i < blockRange+10; i++) {
                     const weightXYZ = await controller.getDenormalizedWeight(XYZ);
@@ -176,6 +177,13 @@ contract('configurableWeightsUMA', async (accounts) => {
                         (weightXYZ*2.5/10**18).toString() + '%\tAugust: ' + 
                         (weightWETH*2.5/10**18).toString() + '%');
                     await controller.pokeWeights();
+
+                    // Try to adust weights with mismatched tokens
+                    if (1 == i) {
+                        truffleAssert.reverts(
+                          controller.updateWeightsGradually(endWeights, i, i+5),
+                          'ERR_START_WEIGHTS_MISMATCH');
+                    }
                 }
             });
         });

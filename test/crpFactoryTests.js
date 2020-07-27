@@ -25,6 +25,7 @@ contract('CRPFactory', async (accounts) => {
     const startWeights = [toWei('12'), toWei('1.5'), toWei('1.5')];
     const startBalances = [toWei('80000'), toWei('40'), toWei('10000')];
     const SYMBOL = 'BSP';
+    const LONG_SYMBOL = '012345678901234567890123456789012'
     const permissions = {
         canPauseSwapping: false,
         canChangeSwapFee: false,
@@ -33,17 +34,32 @@ contract('CRPFactory', async (accounts) => {
         canWhitelistLPs: false,
     };
 
+    // Can't seem to break it with this - possibly the optimizer is removing unused values?
+    // I tried a very large structure (> 256), and still could not break it by passing in a large permissions struct
+    // Could still be a problem with optimizer off, or in some way I can't foresee. We have general protection in the
+    // Factory against any such shenanigans, by validating the expected calldata size. If it is too big, it reverts.
+    const longPermissions = {
+        canPauseSwapping: false,
+        canChangeSwapFee: false,
+        canChangeWeights: false,
+        canAddRemoveTokens: true,
+        canWhitelistLPs: false,
+        canMakeMischief: true,
+        canOverflowArray: true,
+        canBeThreeTooLong: true,
+    };
+
     before(async () => {
         bFactory = await BFactory.deployed();
         crpFactory = await CRPFactory.deployed();
         xyz = await TToken.new('XYZ', 'XYZ', 18);
         weth = await TToken.new('Wrapped Ether', 'WETH', 18);
         dai = await TToken.new('Dai Stablecoin', 'DAI', 18);
-
+ 
         WETH = weth.address;
         DAI = dai.address;
         XYZ = xyz.address;
-
+ 
         // admin balances
         await weth.mint(admin, toWei('100'));
         await dai.mint(admin, toWei('15000'));
@@ -66,7 +82,7 @@ contract('CRPFactory', async (accounts) => {
             startBalances,
             startWeights,
             10 ** 15, // swapFee
-            permissions,
+            longPermissions, // tolerates extra data at end (calldata still the same size)
         );
 
         crpPool = await ConfigurableRightsPool.at(CRPPOOL);
@@ -105,10 +121,11 @@ contract('CRPFactory', async (accounts) => {
                 10 ** 15,
                 permissions,
             ),
+            'ERR_START_WEIGHTS_MISMATCH'
         );
     });
 
-    it('should not be able to create with mismatched start Weights', async () => {
+    it('should not be able to create with mismatched start Balances', async () => {
         const badStartBalances = [toWei('80000'), toWei('40'), toWei('10000'), toWei('5000')];
 
         await truffleAssert.reverts(
@@ -121,6 +138,24 @@ contract('CRPFactory', async (accounts) => {
                 10 ** 15,
                 permissions,
             ),
+            'ERR_START_BALANCES_MISMATCH'
+        );
+    });
+
+    it('should not be able to create with a symbol too long', async () => {
+        const badStartWeights = [toWei('12'), toWei('1.5')];
+
+        await truffleAssert.reverts(
+            crpFactory.newCrp(
+                bFactory.address,
+                LONG_SYMBOL,
+                [XYZ, WETH, DAI],
+                startBalances,
+                startWeights,
+                10 ** 15,
+                permissions,
+            ),
+            'ERR_INVALID_PARAMETERS'
         );
     });
 
@@ -135,6 +170,7 @@ contract('CRPFactory', async (accounts) => {
                 0,
                 permissions,
             ),
+            'ERR_INVALID_SWAP_FEE'
         );
     });
 
@@ -153,8 +189,7 @@ contract('CRPFactory', async (accounts) => {
                 invalidSwapFee,
                 permissions,
             ),
+            'ERR_INVALID_SWAP_FEE'
         );
     });
-
-    // ?????? Check for controller?
 });

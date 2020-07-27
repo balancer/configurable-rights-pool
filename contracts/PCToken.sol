@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity 0.6.6;
+pragma solidity ^0.6.6;
 
 // Imports
 
@@ -58,7 +58,9 @@ contract PCToken is IERC20 {
     string public constant NAME = "Balancer Smart Pool";
     uint8 public constant DECIMALS = 18;
 
-    uint internal _totalSupply;
+    // No leading underscore per naming convention (non-private)
+    // Cannot call totalSupply (name conflict)
+    uint internal varTotalSupply;
 
     mapping(address => uint) private _balance;
     mapping(address => mapping(address => uint)) private _allowance;
@@ -75,10 +77,10 @@ contract PCToken is IERC20 {
 
     /**
      * @notice Base token constructor
-     * @param symbol - the token symbol
+     * @param tokenSymbol - the token symbol
      */
-    constructor (string memory symbol) public {
-        _symbol = symbol;
+    constructor (string memory tokenSymbol) public {
+        _symbol = tokenSymbol;
     }
 
     // External functions
@@ -113,6 +115,12 @@ contract PCToken is IERC20 {
      * @return bool - result of the approval (will always be true if it doesn't revert)
      */
     function approve(address spender, uint amount) external override returns (bool) {
+        // In addition to the increase/decreaseApproval functions, could
+        //   avoid the "approval race condition" by only allowing calls to approve
+        //   when the current approval amount is 0
+        //
+        // require(_allowance[msg.sender][spender] == 0, "ERR_RACE_CONDITION");
+
         _allowance[msg.sender][spender] = amount;
 
         emit Approval(msg.sender, spender, amount);
@@ -198,20 +206,46 @@ contract PCToken is IERC20 {
     // public functions
 
     /**
-     * @notice Getter for the symbol
-     * @return string value of the symbol
+     * @notice Getter for the total supply
+     * @dev declared external for gas optimization
+     * @return uint - total number of tokens in existence
      */
-    function tokenSymbol() public view returns (string memory) {
+    function totalSupply() external view override returns (uint) {
+        return varTotalSupply;
+    }
+
+    // Public functions
+
+    /**
+     * @dev Returns the name of the token.
+     */
+    function name() external pure returns (string memory) {
+        return NAME;
+    }
+
+    /**
+     * @dev Returns the symbol of the token, usually a shorter version of the
+     * name.
+     */
+    function symbol() external view returns (string memory) {
         return _symbol;
     }
 
     /**
-     * @notice Getter for the total supply
-     * @dev override (add keyword in Solidity 0.6)
-     * @return uint - total number of tokens in existence
+     * @dev Returns the number of decimals used to get its user representation.
+     * For example, if `decimals` equals `2`, a balance of `505` tokens should
+     * be displayed to a user as `5,05` (`505 / 10 ** 2`).
+     *
+     * Tokens usually opt for a value of 18, imitating the relationship between
+     * Ether and Wei. This is the value {ERC20} uses, unless {_setupDecimals} is
+     * called.
+     *
+     * NOTE: This information is only used for _display_ purposes: it in
+     * no way affects any of the arithmetic of the contract, including
+     * {IERC20-balanceOf} and {IERC20-transfer}.
      */
-    function totalSupply() public view override returns (uint) {
-        return _totalSupply;
+    function decimals() external pure returns (uint8) {
+        return DECIMALS;
     }
 
     // internal functions
@@ -220,7 +254,7 @@ contract PCToken is IERC20 {
     // Emit a transfer amount from the null address to this contract
     function _mint(uint amount) internal {
         _balance[address(this)] = BalancerSafeMath.badd(_balance[address(this)], amount);
-        _totalSupply = BalancerSafeMath.badd(_totalSupply, amount);
+        varTotalSupply = BalancerSafeMath.badd(varTotalSupply, amount);
 
         emit Transfer(address(0), address(this), amount);
     }
@@ -232,7 +266,7 @@ contract PCToken is IERC20 {
         require(_balance[address(this)] >= amount, "ERR_INSUFFICIENT_BAL");
 
         _balance[address(this)] = BalancerSafeMath.bsub(_balance[address(this)], amount);
-        _totalSupply = BalancerSafeMath.bsub(_totalSupply, amount);
+        varTotalSupply = BalancerSafeMath.bsub(varTotalSupply, amount);
 
         emit Transfer(address(this), address(0), amount);
     }

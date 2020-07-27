@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity 0.6.6;
+pragma solidity ^0.6.6;
 
 /**
  * @author Balancer Labs (and OpenZeppelin)
@@ -46,7 +46,7 @@ contract BalancerReentrancyGuard {
      * by making the `_lock_` function external, and make it call a
      * `private` function that does the actual work.
      */
-    modifier _lock_() {
+    modifier lock() {
         // On the first call to _lock_, _notEntered will be true
         require(_status != _ENTERED, "ERR_REENTRY");
 
@@ -62,7 +62,7 @@ contract BalancerReentrancyGuard {
      * @dev Also add a modifier that doesn't create a lock, but protects functions that
      *      should not be called while a _lock_ function is running
      */
-     modifier _viewlock_() {
+     modifier viewlock() {
         require(_status != _ENTERED, "ERR_REENTRY_VIEW");
         _;
      }

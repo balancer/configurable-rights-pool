@@ -391,13 +391,13 @@ contract('crpPoolTests', async (accounts) => {
 
     describe('PCToken interactions', () => {
         it('Token descriptors', async () => {
-            const name = await crpPool.NAME();
+            const name = await crpPool.name();
             assert.equal(name, 'Balancer Smart Pool');
 
-            const symbol = await crpPool.tokenSymbol();
+            const symbol = await crpPool.symbol();
             assert.equal(symbol, 'BSP');
 
-            const decimals = await crpPool.DECIMALS();
+            const decimals = await crpPool.decimals();
             assert.equal(decimals, 18);
         });
 

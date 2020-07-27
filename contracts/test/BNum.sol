@@ -1,12 +1,16 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity 0.6.6;
+pragma solidity ^0.6.6;
 
 import "./BConst.sol";
+
+// Core contract; can't be changed. So disable solhint (reminder for v2)
+
+/* solhint-disable private-vars-leading-underscore */
 
 contract BNum is BConst {
 
     function btoi(uint a)
-        internal pure 
+        internal pure
         returns (uint)
     {
         return a / BONE;

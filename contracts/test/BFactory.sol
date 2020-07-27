@@ -1,9 +1,14 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity 0.6.6;
+pragma solidity ^0.6.6;
 
 // Builds new BPools, logging their addresses and providing `isBPool(address) -> (bool)`
 
 import "./BPool.sol";
+
+// Core contract; can't be changed. So disable solhint (reminder for v2)
+
+/* solhint-disable func-order */
+/* solhint-disable event-name-camelcase */
 
 contract BFactory is BBronze {
     event LOG_NEW_POOL(

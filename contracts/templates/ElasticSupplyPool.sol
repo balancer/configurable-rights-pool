@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity 0.6.6;
+pragma solidity ^0.6.6;
 
 // Needed to handle structures externally
 pragma experimental ABIEncoderV2;
@@ -16,8 +16,6 @@ import "../utils/BalancerOwnable.sol";
 // Libraries
 import { RightsManager } from "../../libraries/RightsManager.sol";
 import "../../libraries/SmartPoolManager.sol";
-import "../../libraries/BalancerSafeMath.sol";
-import "../../libraries/BalancerConstants.sol";
 
 // Contracts
 
@@ -40,25 +38,25 @@ contract ElasticSupplyPool is ConfigurableRightsPool {
     // State variables
 
     // Tokens allowed to be placed in the pool
-    mapping(address => bool) public _validTokenWhitelist;
+    mapping(address => bool) public validTokenWhitelist;
 
     // Event declarations
 
     // Have to redeclare in the subclass, to be emitted from this contract
 
-    event LOG_CALL(
+    event LogCall(
         bytes4  indexed sig,
         address indexed caller,
         bytes data
     ) anonymous;
 
-    event LOG_JOIN(
+    event LogJoin(
         address indexed caller,
         address indexed tokenIn,
         uint tokenAmountIn
     );
 
-    event LOG_EXIT(
+    event LogExit(
         address indexed caller,
         address indexed tokenOut,
         uint tokenAmountOut
@@ -71,7 +69,7 @@ contract ElasticSupplyPool is ConfigurableRightsPool {
     /**
      * @notice Construct a new Configurable Rights Pool (wrapper around BPool)
      * @param factoryAddress - the BPoolFactory used to create the underlying pool
-     * @param symbol - Token symbol
+     * @param tokenSymbolString - Token symbol (named thus to avoid shadowing)
      * @param tokens - list of tokens to include
      * @param startBalances - initial token balances
      * @param startWeights - initial token weights
@@ -81,7 +79,7 @@ contract ElasticSupplyPool is ConfigurableRightsPool {
      */
     constructor(
         address factoryAddress,
-        string memory symbol,
+        string memory tokenSymbolString,
         address[] memory tokens,
         uint[] memory startBalances,
         uint[] memory startWeights,
@@ -89,7 +87,7 @@ contract ElasticSupplyPool is ConfigurableRightsPool {
         RightsManager.Rights memory rights
     )
         public
-        ConfigurableRightsPool(factoryAddress, symbol, tokens, startBalances, startWeights, swapFee, rights)
+        ConfigurableRightsPool(factoryAddress, tokenSymbolString, tokens, startBalances, startWeights, swapFee, rights)
     {
         // Example whitelist of permitted tokens
         address[3] memory elasticTokens = [address(0xD46bA6D942050d489DBd938a2C909A5d5039A161),  // AMPL
@@ -98,13 +96,13 @@ contract ElasticSupplyPool is ConfigurableRightsPool {
 
         // Initialize the public whitelist
         for (uint i = 0; i < elasticTokens.length; i++) {
-            _validTokenWhitelist[elasticTokens[i]] = true;
+            validTokenWhitelist[elasticTokens[i]] = true;
         }
 
         // Ensure the tokens provided are valid to be used in this kind of pool
         /* Comment out in this template so tests will pass
         for (uint i = 0; i < tokens.length; i++) {
-            require(_validTokenWhitelist[tokens[i]], "ERR_TOKEN_NOT_SUPPORTED");
+            require(validTokenWhitelist[tokens[i]], "ERR_TOKEN_NOT_SUPPORTED");
         } */
     }
 
@@ -140,10 +138,10 @@ contract ElasticSupplyPool is ConfigurableRightsPool {
         uint // newWeight
     )
         external
-        _logs_
-        _lock_
-        _onlyOwner_
-        _needsBPool_
+        logs
+        lock
+        onlyOwner
+        needsBPool
         override
     {
         revert("ERR_UNSUPPORTED_OPERATION");
@@ -165,10 +163,10 @@ contract ElasticSupplyPool is ConfigurableRightsPool {
         uint // endBlock
     )
         external
-        _logs_
-        _lock_
-        _onlyOwner_
-        _needsBPool_
+        logs
+        lock
+        onlyOwner
+        needsBPool
         override
     {
        revert("ERR_UNSUPPORTED_OPERATION");
@@ -180,9 +178,9 @@ contract ElasticSupplyPool is ConfigurableRightsPool {
     */
     function pokeWeights()
         external
-        _logs_
-        _lock_
-        _needsBPool_
+        logs
+        lock
+        needsBPool
         override
     {
        revert("ERR_UNSUPPORTED_OPERATION");
@@ -194,10 +192,10 @@ contract ElasticSupplyPool is ConfigurableRightsPool {
      */
     function resyncWeight(address token)
         external
-        _logs_
-        _lock_
-        _onlyOwner_
-        _needsBPool_
+        logs
+        lock
+        onlyOwner
+        needsBPool
         virtual
     {
         // Subclasses can call this to check permissions

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity 0.6.6;
+pragma solidity ^0.6.6;
 
 contract Migrations {
   address public owner;
@@ -13,7 +13,11 @@ contract Migrations {
     if (msg.sender == owner) _;
   }
 
-  function setCompleted(uint completed) public restricted {
+  /**
+   * @notice set lastCompletedMigration variable
+   * @param completed - id of the desired migration level
+   */
+  function setCompleted(uint completed) external restricted {
     lastCompletedMigration = completed;
   }
 }

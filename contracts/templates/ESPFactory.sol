@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity 0.6.6;
+pragma solidity ^0.6.6;
 
 // Needed to handle structures externally
 pragma experimental ABIEncoderV2;
@@ -32,21 +32,12 @@ contract ESPFactory {
     // Event declarations
 
     // Log the address of each new smart pool, and its creator
-    event LOG_NEW_ESP(
+    event LogNewEsp(
         address indexed caller,
         address indexed pool
     );
 
     // Function declarations
-
-    /**
-     * @notice Check to see if a given address is a CRP
-     * @param addr - address to check
-     * @return boolean indicating whether it is a CRP
-     */
-    function isEsp(address addr) external view returns (bool) {
-        return _isEsp[addr];
-    }
 
     /**
      * @notice Create a new ESP
@@ -70,6 +61,23 @@ contract ESPFactory {
         external
         returns (ElasticSupplyPool)
     {
+        require(tokens.length >= BalancerConstants.MIN_ASSET_LIMIT, "ERR_TOO_FEW_TOKENS");
+
+        // Arrays must be parallel
+        require(startBalances.length == tokens.length, "ERR_START_BALANCES_MISMATCH");
+        require(startWeights.length == tokens.length, "ERR_START_WEIGHTS_MISMATCH");
+
+        // We have two parameters that could cause mischief: the string symbol, and the rights struct
+        // With well-behaved arguments, the size of the calldata should vary only proportionally to the
+        // length of the 3 token arrays (32 bytes per slot * 3 arrays * length of arrays = 96 * number of tokens)
+        // So we can calculated the expected size with a fixed offset + linear token measure
+        uint expectedCalldataLength = 516 + 96 * tokens.length;
+        // The symbol will fit unless it exceeds 32 characters (tricky to get the length of a UTF8 string directly)
+        // The struct should be handled by the optimizer, but it may be possible to choose an input value or size
+        // that would cause trouble.
+        // Therefore, enforce that the calldata is the expected size, as a general defensive measure
+        require(msg.data.length == expectedCalldataLength, "ERR_INVALID_PARAMETERS");
+
         ElasticSupplyPool esp = new ElasticSupplyPool(
             factoryAddress,
             symbol,
@@ -83,8 +91,17 @@ contract ESPFactory {
         _isEsp[address(esp)] = true;
         esp.setController(msg.sender);
 
-        emit LOG_NEW_ESP(msg.sender, address(esp));
+        emit LogNewEsp(msg.sender, address(esp));
 
         return esp;
+    }
+
+    /**
+     * @notice Check to see if a given address is a CRP
+     * @param addr - address to check
+     * @return boolean indicating whether it is a CRP
+     */
+    function isEsp(address addr) external view returns (bool) {
+        return _isEsp[addr];
     }
 }

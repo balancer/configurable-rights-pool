@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity 0.6.6;
+pragma solidity ^0.6.6;
 
 
 /**
@@ -36,7 +36,7 @@ library BalancerSafeMath {
      */
     function bsub(uint a, uint b) internal pure returns (uint) {
         (uint c, bool negativeResult) = bsubSign(a, b);
-        require(false == negativeResult, "ERR_SUB_UNDERFLOW");
+        require(!negativeResult, "ERR_SUB_UNDERFLOW");
         return c;
     }
 

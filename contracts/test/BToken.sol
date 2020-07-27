@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity 0.6.6;
+pragma solidity ^0.6.6;
 
 import "./BNum.sol";
 import "../PCToken.sol";
 
 // Highly opinionated token implementation
+
 /*
 interface IERC20 {
     event Approval(address indexed src, address indexed dst, uint amt);
@@ -21,6 +22,10 @@ interface IERC20 {
     ) external returns (bool);
 }
 */
+
+// Core contract; can't be changed. So disable solhint (reminder for v2)
+
+/* solhint-disable func-order */
 
 contract BTokenBase is BNum {
 

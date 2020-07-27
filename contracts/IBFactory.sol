@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity 0.6.6;
+pragma solidity ^0.6.6;
 
 interface IBPool {
     function isBound(address token) external view returns(bool);
@@ -65,11 +65,9 @@ interface IBPool {
 }
 
 interface IBFactory {
-
     function isBPool(address b) external view returns (bool);
     function newBPool() external returns (IBPool);
     function getBLabs() external view returns (address);
     function setBLabs(address b) external;
     function collect(IBPool pool) external;
-
 }
