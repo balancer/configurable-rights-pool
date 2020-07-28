@@ -94,9 +94,10 @@ contract('ESPFactory', async (accounts) => {
         assert.equal(isPoolRegistered, false, 'Expected not to be registered.');
     });
 
-    it('should not be able to create with mismatched start Weights', async () => {
+    it('should be able to create with mismatched start Weights', async () => {
         const badStartWeights = [toWei('12'), toWei('1.5'), toWei('24')];
 
+        
         await truffleAssert.reverts(
             espFactory.newEsp(
                 bFactory.address,
@@ -128,19 +129,16 @@ contract('ESPFactory', async (accounts) => {
         );
     });
 
-    it('should not be able to create with a long symbol', async () => {
-        await truffleAssert.reverts(
-            espFactory.newEsp(
-                bFactory.address,
-                LONG_SYMBOL,
-                [USDC, DAI],
-                startBalances,
-                startWeights,
-                10 ** 15,
-                permissions,
-            ),
-            'ERR_INVALID_PARAMETERS'
-        );
+    it('should be able to create with a long symbol', async () => {
+        espFactory.newEsp(
+            bFactory.address,
+            LONG_SYMBOL,
+            [USDC, DAI],
+            startBalances,
+            startWeights,
+            10 ** 15,
+            permissions,
+        )
     });
 
     it('should not be able to create with zero fee', async () => {

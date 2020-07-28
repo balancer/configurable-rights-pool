@@ -20,7 +20,7 @@ contract('configurableWeightsUMA', async (accounts) => {
         canWhitelistLPs: false,
     };
 
-    describe('Factory', () => {
+    describe('Factory_UMA', () => {
         let bfactory;
         let factory;
         let controller;
@@ -195,21 +195,19 @@ contract('configurableWeightsUMA', async (accounts) => {
             });
         });
 
-        describe('time travel check', () => {
-            it('Controller should not be able to call updateWeightsGradually() with range in the past', async () => {
-                // get current block number
-               const block = await web3.eth.getBlock('latest');
-               console.log("Block of updateWeightsGradually() call: "+block.number)
-               const startBlock = block.number - 20;
-               const endBlock = startBlock + 10;
-               // Here we are trying to updateWeightsGradually in the past: from 10-20 when we're on block 30
-               const endWeights = [toWei('39'), toWei('1')];
+        it('Controller should not be able to call updateWeightsGradually() with range in the past', async () => {
+            // get current block number
+            const block = await web3.eth.getBlock('latest');
+            console.log("Block of updateWeightsGradually() call: "+block.number)
+            const startBlock = block.number - 20;
+            const endBlock = startBlock + 10;
+            // Here we are trying to updateWeightsGradually in the past: from 10-20 when we're on block 30
+            const endWeights = [toWei('39'), toWei('1')];
 
-               truffleAssert.reverts(
-                   controller.updateWeightsGradually(endWeights, startBlock, endBlock),
-                   'ERR_GRADUAL_UPDATE_TIME_TRAVEL'
-               );
-           });
+            truffleAssert.reverts(
+                controller.updateWeightsGradually(endWeights, startBlock, endBlock),
+                'ERR_GRADUAL_UPDATE_TIME_TRAVEL'
+            );
         });
     });
 });
