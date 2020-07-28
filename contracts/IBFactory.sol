@@ -14,6 +14,7 @@ interface IBPool {
     function getDenormalizedWeight(address token) external view returns (uint);
     function getTotalDenormalizedWeight() external view returns (uint);
     function gulp(address token) external;
+    function EXIT_FEE() external view returns (uint);
 
     function calcPoolOutGivenSingleIn(
         uint tokenBalanceIn,

@@ -76,16 +76,6 @@ contract CRPFactory {
         require(startBalances.length == tokens.length, "ERR_START_BALANCES_MISMATCH");
         require(startWeights.length == tokens.length, "ERR_START_WEIGHTS_MISMATCH");
 
-        // We have two parameters that could cause mischief: the string symbol, and the rights struct
-        // With well-behaved arguments, the size of the calldata should vary only proportionally to the
-        // length of the 3 token arrays (32 bytes per slot * 3 arrays * length of arrays = 96 * number of tokens)
-        // So we can calculated the expected size with a fixed offset + linear token measure
-        uint expectedCalldataLength = 516 + 96 * tokens.length;
-        // The symbol will fit unless it exceeds 32 characters (it's tricky to get the length of a UTF8 string directly)
-        // The struct should be handled by the optimizer, but it may be possible to choose an input value or size that
-        // would cause trouble. Therefore, enforce that the calldata is the expected size, as a general defensive measure
-        require(msg.data.length == expectedCalldataLength, "ERR_INVALID_PARAMETERS");
-
         ConfigurableRightsPool crp = new ConfigurableRightsPool(
             factoryAddress,
             symbol,

@@ -144,20 +144,15 @@ contract('CRPFactory', async (accounts) => {
         );
     });
 
-    it('should not be able to create with a symbol too long', async () => {
-        const badStartWeights = [toWei('12'), toWei('1.5')];
-
-        await truffleAssert.reverts(
-            crpFactory.newCrp(
-                bFactory.address,
-                LONG_SYMBOL,
-                [XYZ, WETH, DAI],
-                startBalances,
-                startWeights,
-                10 ** 15,
-                permissions,
-            ),
-            'ERR_INVALID_PARAMETERS'
+    it('should still be able to create with a long symbol', async () => {
+        crpFactory.newCrp(
+            bFactory.address,
+            LONG_SYMBOL,
+            [XYZ, WETH, DAI],
+            startBalances,
+            startWeights,
+            10 ** 15,
+            permissions,
         );
     });
 

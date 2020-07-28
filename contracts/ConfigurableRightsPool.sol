@@ -300,7 +300,6 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
      * @param minimumWeightChangeBlockPeriod - Enforce a minimum time between the start and end blocks
      * @param addTokenTimeLockInBlocks - Enforce a mandatory wait time between updates
      *                                   This is also the wait time between committing and applying a new token
-     * @return ConfigurableRightsPool instance
      */
     function createPool(
         uint initialSupply,
@@ -311,7 +310,6 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
         logs
         lock
         virtual
-        returns (ConfigurableRightsPool)
     {
         require(minimumWeightChangeBlockPeriod >= BalancerConstants.MIN_WEIGHT_CHANGE_BLOCK_PERIOD,
                 "ERR_INVALID_BLOCK_PERIOD");
@@ -324,7 +322,6 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
         _addTokenTimeLockInBlocks = addTokenTimeLockInBlocks;
 
         require(address(bPool) == address(0), "ERR_IS_CREATED");
-        require(block.number >= _startBlock, "ERR_START_BLOCK");
         require(initialSupply > 0, "ERR_INIT_SUPPLY");
 
         // There is technically reentrancy here, since we're making external calls and
@@ -332,6 +329,9 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
 
         // Deploy new BPool
         bPool = bFactory.newBPool();
+        // EXIT_FEE must always be zero, or ConfigurableRightsPool._pushUnderlying will fail
+        require(bPool.EXIT_FEE() == 0, "ERR_NONZERO_EXIT_FEE");
+        require(BalancerConstants.EXIT_FEE == 0, "ERR_NONZERO_EXIT_FEE");
 
         // Set fee to the initial value set in the constructor
         bPool.setSwapFee(_swapFee);
@@ -369,17 +369,14 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
      *      because msg.sender will be different (contract address vs external account), and the
      *      token transfers would fail. Overloading is tricky with external functions.
      * @param initialSupply starting token balance
-     * @return ConfigurableRightsPool instance
      */
     function createPool(uint initialSupply)
         external
         logs
         lock
         virtual
-        returns (ConfigurableRightsPool)
     {
         require(address(bPool) == address(0), "ERR_IS_CREATED");
-        require(block.number >= _startBlock, "ERR_START_BLOCK");
         require(initialSupply > 0, "ERR_INIT_SUPPLY");
 
         // There is technically reentrancy here, since we're making external calls and
@@ -387,6 +384,9 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
 
         // Deploy new BPool
         bPool = bFactory.newBPool();
+        // EXIT_FEE must always be zero, or ConfigurableRightsPool._pushUnderlying will fail
+        require(bPool.EXIT_FEE() == 0, "ERR_NONZERO_EXIT_FEE");
+        require(BalancerConstants.EXIT_FEE == 0, "ERR_NONZERO_EXIT_FEE");
 
         // Set fee to the initial value set in the constructor
         bPool.setSwapFee(_swapFee);
@@ -450,9 +450,10 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
     /**
      * @notice Update weights in a predetermined way, between startBlock and endBlock,
      *         through external calls to pokeWeights
-     * @dev Makes sure we aren't already in a weight update scheme
-     *      Must call pokeWeights at least once past the end for it to do the final update
-     *      and enable calling this again. (Could make this check for that case, but unwarranted complexity.)
+     * @dev Must call pokeWeights at least once past the end for it to do the final update
+     *      and enable calling this again.
+     *      It is possible to call updateWeightsGradually during an update in some use cases
+     *      For instance, setting newWeights to currentWeights to stop the update where it is
      * @param newWeights - final weights we want to get to
      * @param startBlock - when weights should start to change
      * @param endBlock - when weights will be at their final values
@@ -517,6 +518,11 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
             _startWeights,
             _newWeights
         );
+
+        // Reset to allow add/remove tokens, or manual weight updates
+        if (block.number >= _endBlock) {
+            _startBlock = 0;
+        }
     }
 
     /**
@@ -786,7 +792,6 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
 
         // Calculates final amountOut, and the fee and final amount in
         (uint exitFee,
-         uint pAiAfterExitFee,
          uint amountOut) = SmartPoolManager.exitswapPoolAmountIn(
                                this,
                                bPool,
@@ -797,6 +802,7 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
                            );
 
         tokenAmountOut = amountOut;
+        uint pAiAfterExitFee = BalancerSafeMath.bsub(poolAmountIn, exitFee);
 
         emit LogExit(msg.sender, tokenOut, tokenAmountOut);
 
@@ -832,7 +838,6 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
 
         // Calculates final amounts in, accounting for the exit fee
         (uint exitFee,
-         uint pAiAfterExitFee,
          uint amountIn) = SmartPoolManager.exitswapExternAmountOut(
                               this,
                               bPool,
@@ -843,6 +848,7 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
                           );
 
         poolAmountIn = amountIn;
+        uint pAiAfterExitFee = BalancerSafeMath.bsub(poolAmountIn, exitFee);
 
         emit LogExit(msg.sender, tokenOut, tokenAmountOut);
 
@@ -888,6 +894,23 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
         require(provider != address(0), "ERR_INVALID_ADDRESS");
 
         _liquidityProviderWhitelist[provider] = true;
+    }
+
+    /**
+     * @notice Remove from the whitelist of liquidity providers (if enabled)
+     * @param provider - address of the liquidity provider
+     */
+    function removeWhitelistedLiquidityProvider(address provider)
+        external
+        onlyOwner
+        lock
+        logs
+    {
+        require(_rights.canWhitelistLPs, "ERR_CANNOT_WHITELIST_LPS");
+        require(_liquidityProviderWhitelist[provider], "ERR_LP_NOT_WHITELISTED");
+        require(provider != address(0), "ERR_INVALID_ADDRESS");
+
+        _liquidityProviderWhitelist[provider] = false;
     }
 
     // Public functions

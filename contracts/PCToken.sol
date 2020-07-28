@@ -87,7 +87,6 @@ contract PCToken is IERC20 {
 
     /**
      * @notice Getter for allowance: amount spender will be allowed to spend on behalf of owner
-     * @dev override (add keyword in Solidity 0.6)
      * @param owner - owner of the tokens
      * @param spender - entity allowed to spend the tokens
      * @return uint - remaining amount spender is allowed to transfer
@@ -98,7 +97,6 @@ contract PCToken is IERC20 {
 
     /**
      * @notice Getter for current account balance
-     * @dev override (add keyword in Solidity 0.6)
      * @param account - address we're checking the balance of
      * @return uint - token balance in the account
      */
@@ -109,7 +107,6 @@ contract PCToken is IERC20 {
     /**
      * @notice Approve owner (sender) to spend a certain amount
      * @dev emits an Approval event
-     *      override (add keyword in Solidity 0.6)
      * @param spender - entity the owner (sender) is approving to spend his tokens
      * @param amount - number of tokens being approved
      * @return bool - result of the approval (will always be true if it doesn't revert)
@@ -168,12 +165,13 @@ contract PCToken is IERC20 {
     /**
      * @notice Transfer the given amount from sender (caller) to recipient
      * @dev _move emits a Transfer event if successful
-     *      override (add keyword in Solidity 0.6)
      * @param recipient - entity receiving the tokens
      * @param amount - number of tokens being transferred
      * @return bool - result of the transfer (will always be true if it doesn't revert)
      */
     function transfer(address recipient, uint amount) external override returns (bool) {
+        require(recipient != address(0), "ERR_ZERO_ADDRESS");
+
         _move(msg.sender, recipient, amount);
 
         return true;
@@ -182,13 +180,13 @@ contract PCToken is IERC20 {
     /**
      * @notice Transfer the given amount from sender to recipient
      * @dev _move emits a Transfer event if successful; may also emit an Approval event
-     *      override (add keyword in Solidity 0.6)
      * @param sender - entity sending the tokens (must be caller or allowed to spend on behalf of caller)
      * @param recipient - recipient of the tokens
      * @param amount - number of tokens being transferred
      * @return bool - result of the transfer (will always be true if it doesn't revert)
      */
     function transferFrom(address sender, address recipient, uint amount) external override returns (bool) {
+        require(recipient != address(0), "ERR_ZERO_ADDRESS");
         require(msg.sender == sender || amount <= _allowance[sender][msg.sender], "ERR_PCTOKEN_BAD_CALLER");
 
         _move(sender, recipient, amount);

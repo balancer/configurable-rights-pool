@@ -114,7 +114,6 @@ contract ElasticSupplyPool is ConfigurableRightsPool {
      * param minimumWeightChangeBlockPeriod - Enforce a minimum time between the start and end blocks
      * param addTokenTimeLockInBlocks - Enforce a mandatory wait time between updates
      *                                   This is also the wait time between committing and applying a new token
-     * @return ConfigurableRightsPool instance
      */
     function createPool(
         uint, // initialSupply
@@ -123,7 +122,6 @@ contract ElasticSupplyPool is ConfigurableRightsPool {
     )
         external
         override
-        returns (ConfigurableRightsPool)
     {
         revert("ERR_UNSUPPORTED_OPERATION");
     }
@@ -139,7 +137,6 @@ contract ElasticSupplyPool is ConfigurableRightsPool {
     )
         external
         logs
-        lock
         onlyOwner
         needsBPool
         override
@@ -164,7 +161,6 @@ contract ElasticSupplyPool is ConfigurableRightsPool {
     )
         external
         logs
-        lock
         onlyOwner
         needsBPool
         override
@@ -179,7 +175,6 @@ contract ElasticSupplyPool is ConfigurableRightsPool {
     function pokeWeights()
         external
         logs
-        lock
         needsBPool
         override
     {

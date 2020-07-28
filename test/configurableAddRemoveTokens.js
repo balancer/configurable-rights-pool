@@ -165,7 +165,7 @@ contract('configurableAddRemoveTokens', async (accounts) => {
         );
     });
 
-    it('Controller should be able to commitAddToken again', async () => {
+    it('Controller should be able to commitAddToken', async () => {
         const block = await web3.eth.getBlock('latest');
         applyAddTokenValidBlock = block.number + addTokenTimeLockInBlocks;
         console.log(`Block commitAddToken for ABC: ${block.number}`);

@@ -270,6 +270,13 @@ contract('configurableLP', async (accounts) => {
             assert.isTrue(hasPerm, 'Admin cannot provide liquidity');
         });
 
+        it('Cannot remove if not on whitelist', async () => {
+            await truffleAssert.reverts(
+                crpPool.removeWhitelistedLiquidityProvider(admin2),
+                'ERR_LP_NOT_WHITELISTED',
+            );
+        });
+
         it('admin2 cannot join pool', async () => {
             const maxAmountsIn = [toWei('100'), toWei('100'), toWei('100')];
 
@@ -287,6 +294,12 @@ contract('configurableLP', async (accounts) => {
                 crpPool.joinswapPoolAmountOut(weth.address, toWei('1'), toWei('100'), { from: admin2 }),
                 'ERR_NOT_ON_WHITELIST',
             );
+        });
+
+        it('Can remove from whitelist', async () => {
+            await crpPool.removeWhitelistedLiquidityProvider(admin3);
+            hasPerm = await crpPool.canProvideLiquidity(admin3);
+            assert.isFalse(hasPerm, 'Admin can provide liquidity');
         });
     });
 });

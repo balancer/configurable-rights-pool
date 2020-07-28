@@ -27,7 +27,7 @@ contract('crpPoolTests', async (accounts) => {
     const swapFee = toWei('0.003');
     const startWeights = [toWei('12'), toWei('1.5'), toWei('1.5')];
     const startBalances = [toWei('80000'), toWei('40'), toWei('10000')];
-    const SYMBOL = 'BSP';
+    const SYMBOL = (Math.random() + 1).toString(36).substring(7); // 'BSP';
     const permissions = {
         canPauseSwapping: true,
         canChangeSwapFee: true,
@@ -397,7 +397,7 @@ contract('crpPoolTests', async (accounts) => {
             assert.equal(name, 'Balancer Smart Pool');
 
             const symbol = await crpPool.symbol();
-            assert.equal(symbol, 'BSP');
+            assert.equal(symbol, SYMBOL);
 
             const decimals = await crpPool.decimals();
             assert.equal(decimals, 18);

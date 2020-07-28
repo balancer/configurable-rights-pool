@@ -281,8 +281,9 @@ library SmartPoolManager {
         require(returnValue, "ERR_ERC20_FALSE");
 
         // Now with the tokens this contract can bind them to the pool it controls
-        // Approves bPool to pull from this controller (only approve exact balance, not unlimited, for security)
-        returnValue = IERC20(newToken.addr).approve(address(bPool), newToken.balance);
+        // Approves bPool to pull from this controller
+        // Approve unlimited, same as when creating the pool, so they can join pools later
+        returnValue = IERC20(newToken.addr).approve(address(bPool), uint(-1));
         require(returnValue, "ERR_ERC20_FALSE");
 
         bPool.bind(newToken.addr, newToken.balance, newToken.denorm);
@@ -355,6 +356,7 @@ library SmartPoolManager {
         // The also prevents endBlock <= startBlock
         require(BalancerSafeMath.bsub(endBlock, startBlock) >= minimumWeightChangeBlockPeriod,
                 "ERR_WEIGHT_CHANGE_TIME_BELOW_MIN");
+        require(block.number < endBlock, "ERR_GRADUAL_UPDATE_TIME_TRAVEL");
 
         address[] memory tokens = bPool.getCurrentTokens();
 
@@ -380,7 +382,7 @@ library SmartPoolManager {
         }
         require(weightsSum <= BalancerConstants.MAX_TOTAL_WEIGHT, "ERR_MAX_TOTAL_WEIGHT");
 
-        if(block.number > startBlock){
+        if (block.number > startBlock && block.number < endBlock) {
             // This means the weight update should start ASAP
             // Moving the start block up prevents a big jump/discontinuity in the weights
             actualStartBlock = block.number;
@@ -577,7 +579,6 @@ library SmartPoolManager {
      * @param poolAmountIn - amount of pool tokens to redeem
      * @param minAmountOut - minimum asset tokens to receive
      * @return exitFee - calculated exit fee
-     * @return pAiAfterExitFee - calculated pool amount in, accounting for exit fee
      * @return tokenAmountOut - amount of asset tokens returned
      */
     function exitswapPoolAmountIn(
@@ -590,7 +591,7 @@ library SmartPoolManager {
     )
         external
         view
-        returns (uint exitFee, uint pAiAfterExitFee, uint tokenAmountOut)
+        returns (uint exitFee, uint tokenAmountOut)
     {
         require(bPool.isBound(tokenOut), "ERR_NOT_BOUND");
 
@@ -609,7 +610,6 @@ library SmartPoolManager {
                                                         "ERR_MAX_OUT_RATIO");
 
         exitFee = BalancerSafeMath.bmul(poolAmountIn, BalancerConstants.EXIT_FEE);
-        pAiAfterExitFee = BalancerSafeMath.bsub(poolAmountIn, exitFee);
     }
 
     /**
@@ -622,7 +622,6 @@ library SmartPoolManager {
      * @param tokenAmountOut - amount of underlying asset tokens to receive
      * @param maxPoolAmountIn - maximum pool tokens to be redeemed
      * @return exitFee - calculated exit fee
-     * @return pAiAfterExitFee - calculated pool amount in, accounting for exit fee
      * @return poolAmountIn - amount of pool tokens redeemed
      */
     function exitswapExternAmountOut(
@@ -635,7 +634,7 @@ library SmartPoolManager {
     )
         external
         view
-        returns (uint exitFee, uint pAiAfterExitFee, uint poolAmountIn)
+        returns (uint exitFee, uint poolAmountIn)
     {
         require(bPool.isBound(tokenOut), "ERR_NOT_BOUND");
         require(tokenAmountOut <= BalancerSafeMath.bmul(bPool.getBalance(tokenOut),
@@ -654,6 +653,5 @@ library SmartPoolManager {
         require(poolAmountIn <= maxPoolAmountIn, "ERR_LIMIT_IN");
 
         exitFee = BalancerSafeMath.bmul(poolAmountIn, BalancerConstants.EXIT_FEE);
-        pAiAfterExitFee = BalancerSafeMath.bsub(poolAmountIn, exitFee);
     }
 }

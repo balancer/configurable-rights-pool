@@ -93,12 +93,13 @@ contract('configurableWeightsUMA', async (accounts) => {
                 blockRange = 20;
                 // get current block number
                 const block = await web3.eth.getBlock('latest');
-                // console.log("Block of updateWeightsGradually() call: "+block.number)
+                console.log("Block of updateWeightsGradually() call: "+block.number)
                 const startBlock = block.number + 3;
                 const endBlock = startBlock + blockRange;
                 const endWeights = [toWei('39'), toWei('1')];
                 console.log(`Start block for June -> July flipping: ${startBlock}`);
                 console.log(`End   block for June -> July flipping: ${endBlock}`);
+
                 await controller.updateWeightsGradually(endWeights, startBlock, endBlock);
             });
 
@@ -188,6 +189,27 @@ contract('configurableWeightsUMA', async (accounts) => {
                     }
                 }
             });
+
+            it('Should be able to commit token after gradual update', async () => {
+                await controller.commitAddToken(DAI, toWei('10000'), toWei('1.5'));
+            });
+        });
+
+        describe('time travel check', () => {
+            it('Controller should not be able to call updateWeightsGradually() with range in the past', async () => {
+                // get current block number
+               const block = await web3.eth.getBlock('latest');
+               console.log("Block of updateWeightsGradually() call: "+block.number)
+               const startBlock = block.number - 20;
+               const endBlock = startBlock + 10;
+               // Here we are trying to updateWeightsGradually in the past: from 10-20 when we're on block 30
+               const endWeights = [toWei('39'), toWei('1')];
+
+               truffleAssert.reverts(
+                   controller.updateWeightsGradually(endWeights, startBlock, endBlock),
+                   'ERR_GRADUAL_UPDATE_TIME_TRAVEL'
+               );
+           });
         });
     });
 });
