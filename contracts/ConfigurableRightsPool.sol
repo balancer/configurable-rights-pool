@@ -994,25 +994,25 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
     // Tools suggest they should be external - but they must be public!
 
     function mintPoolShareFromLib(uint amount) public {
-        require (msg.sender == this.getController() || msg.sender == address(this), "ERR_NOT_CONTROLLER");
+        require (msg.sender == address(this), "ERR_NOT_CONTROLLER");
 
         _mint(amount);
     }
 
     function pushPoolShareFromLib(address to, uint amount) public {
-        require (msg.sender == this.getController() || msg.sender == address(this), "ERR_NOT_CONTROLLER");
+        require (msg.sender == address(this), "ERR_NOT_CONTROLLER");
 
         _push(to, amount);
     }
 
     function pullPoolShareFromLib(address from, uint amount) public  {
-        require (msg.sender == this.getController() || msg.sender == address(this), "ERR_NOT_CONTROLLER");
+        require (msg.sender == address(this), "ERR_NOT_CONTROLLER");
 
         _pull(from, amount);
     }
 
     function burnPoolShareFromLib(uint amount) public  {
-        require (msg.sender == this.getController() || msg.sender == address(this), "ERR_NOT_CONTROLLER");
+        require (msg.sender == address(this), "ERR_NOT_CONTROLLER");
 
         _burn(amount);
     }
