@@ -139,8 +139,6 @@ library SmartPoolManager {
     )
         external
     {
-        require(block.number >= startBlock, "ERR_CANT_POKE_YET");
-
         // Do nothing if we call this when there is no update plan
         if (startBlock == 0) {
             return;

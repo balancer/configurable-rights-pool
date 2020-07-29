@@ -50,6 +50,9 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
     uint private _swapFee;
 
     // Store the list of tokens in the pool, and balances
+    // NOTE that the token list is *only* used to store the pool tokens between
+    //   construction and createPool - thereafter, use the underlying BPool's list
+    //   (avoids synchronization issues)
     address[] private _tokens;
     uint[] private _startBalances;
 
@@ -347,10 +350,14 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
             returnValue = IERC20(t).approve(address(bPool), uint(-1));
             require(returnValue, "ERR_ERC20_FALSE");
 
-            // Note that this will actually duplicate the array of tokens
-            //   This contract has _tokens, and so does the underlying pool
             // Binding pushes a token to the end of the underlying pool's array
+            // After binding, we discard the local _tokens array
             bPool.bind(t, bal, denorm);
+        }
+
+        // Clear local storage to prevent use of it after createPool
+        while (_tokens.length > 0) {
+            _tokens.pop();
         }
 
         bPool.setPublicSwap(true);
@@ -406,6 +413,11 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
             //   This contract has _tokens, and so does the underlying pool
             // Binding pushes a token to the end of the underlying pool's array
             bPool.bind(t, bal, denorm);
+        }
+
+        // Clear local storage to prevent use of it after createPool
+        while (_tokens.length > 0) {
+            _tokens.pop();
         }
 
         // Do "finalize" things, but can't call bPool.finalize(), or it wouldn't let us rebind or do any
@@ -471,8 +483,11 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
         virtual
     {
         require(_rights.canChangeWeights, "ERR_NOT_CONFIGURABLE_WEIGHTS");
+        // After createPool, token list is maintained in the underlying BPool
+        address[] memory poolTokens = bPool.getCurrentTokens();
+
         // Must specify weights for all tokens
-        require(newWeights.length == _tokens.length, "ERR_START_WEIGHTS_MISMATCH");
+        require(newWeights.length == poolTokens.length, "ERR_START_WEIGHTS_MISMATCH");
 
         // Delegate to library to save space
 
@@ -491,7 +506,7 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
         _endBlock = endBlock;
         _newWeights = newWeights;
 
-        for (uint i = 0; i < _tokens.length; i++) {
+        for (uint i = 0; i < poolTokens.length; i++) {
             _startWeights[i] = startWeights[i];
         }
     }
@@ -595,6 +610,11 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
         needsBPool
     {
         require(_rights.canAddRemoveTokens, "ERR_CANNOT_ADD_REMOVE_TOKENS");
+        // After createPool, token list is maintained in the underlying BPool
+        address[] memory poolTokens = bPool.getCurrentTokens();
+
+        require(poolTokens.length > BalancerConstants.MIN_ASSET_LIMIT, "ERR_TOO_FEW_TOKENS");
+        require(!_newToken.isCommitted, "ERR_REMOVE_WITH_ADD_PENDING");
 
         // Delegate to library to save space
         SmartPoolManager.removeToken(
@@ -602,7 +622,7 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
             bPool,
             token
         );
-    }
+   }
 
     /**
      * @notice Join a pool
@@ -632,8 +652,11 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
                                             maxAmountsIn
                                         );
 
-        for (uint i = 0; i < _tokens.length; i++) {
-            address t = _tokens[i];
+        // After createPool, token list is maintained in the underlying BPool
+        address[] memory poolTokens = bPool.getCurrentTokens();
+
+        for (uint i = 0; i < poolTokens.length; i++) {
+            address t = poolTokens[i];
             uint tokenAmountIn = actualAmountsIn[i];
 
             emit LogJoin(msg.sender, t, tokenAmountIn);
@@ -674,8 +697,11 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
         _pushPoolShare(address(bFactory), exitFee);
         _burnPoolShare(pAiAfterExitFee);
 
-        for (uint i = 0; i < _tokens.length; i++) {
-            address t = _tokens[i];
+        // After createPool, token list is maintained in the underlying BPool
+        address[] memory poolTokens = bPool.getCurrentTokens();
+
+        for (uint i = 0; i < poolTokens.length; i++) {
+            address t = poolTokens[i];
             uint tokenAmountOut = actualAmountsOut[i];
 
             emit LogExit(msg.sender, t, tokenAmountOut);

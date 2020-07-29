@@ -192,35 +192,6 @@ contract('crpPoolTests', async (accounts) => {
         assert.equal(adminBPTBalance, toWei('100'));
     });
 
-    /* Pools are now "finalized" at the CRP level on create; don't need to call anything
-    it('JoinPool should revert if smart pool is not finalized yet', async () => {
-        await truffleAssert.reverts(
-            crpPool.joinPool(toWei('1000')),
-            'ERR_SMART_POOL_NOT_FINALIZED',
-        );
-    });
-
-
-    it('Fails calling any join exit swap before finalizing', async () => {
-        await truffleAssert.reverts(
-            crpPool.joinswapExternAmountIn(WETH, toWei('2.5')),
-            'ERR_SMART_POOL_NOT_FINALIZED',
-        );
-        await truffleAssert.reverts(
-            crpPool.joinswapPoolAmountOut(WETH, toWei('2.5')),
-            'ERR_SMART_POOL_NOT_FINALIZED',
-        );
-        await truffleAssert.reverts(
-            crpPool.exitswapPoolAmountIn(WETH, toWei('2.5')),
-            'ERR_SMART_POOL_NOT_FINALIZED',
-        );
-        await truffleAssert.reverts(
-            crpPool.exitswapExternAmountOut(WETH, toWei('2.5')),
-            'ERR_SMART_POOL_NOT_FINALIZED',
-        );
-    });
-    */
-
     it('JoinPool should not revert if smart pool is finalized', async () => {
         const bPoolAddr = await crpPool.bPool();
         let currentPoolBalance = await crpPool.balanceOf.call(admin);

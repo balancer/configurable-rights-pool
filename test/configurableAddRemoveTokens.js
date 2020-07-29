@@ -187,6 +187,13 @@ contract('configurableAddRemoveTokens', async (accounts) => {
         assert.equal(adminAbcBalance, toWei('100000'));
     });
 
+    it('Should not be able to removeToken while an add is pending', async () => {
+        await truffleAssert.reverts(
+            crpPool.removeToken.call(xyz.address),
+            'ERR_REMOVE_WITH_ADD_PENDING',
+        );
+    });
+
     it('Controller should not be able to applyAddToken before addTokenTimeLockInBlocks', async () => {
         let block = await web3.eth.getBlock('latest');
 
@@ -330,6 +337,22 @@ contract('configurableAddRemoveTokens', async (accounts) => {
         assert.equal(abcWeight, toWei('1.5'));
     });
 
+    it('Should not be able to remove too many tokens', async () => {
+        // It now has ABC, XYZ, and WETH
+        // If we remove ABC, it's down to two tokens - should not be able to remove those
+        await crpPool.removeToken(ABC);
+
+        await truffleAssert.reverts(
+            crpPool.removeToken(WETH),
+            'ERR_TOO_FEW_TOKENS',
+        );
+
+        await truffleAssert.reverts(
+            crpPool.removeToken(XYZ),
+            'ERR_TOO_FEW_TOKENS',
+        );
+    });
+
     it('Set public swap should revert because non-permissioned', async () => {
         await truffleAssert.reverts(
             crpPool.setPublicSwap(false),
@@ -378,6 +401,4 @@ contract('configurableAddRemoveTokens', async (accounts) => {
             'ERR_INSUFFICIENT_BAL',
         );
     });
-
-    // ??????? other weight edge cases
 });

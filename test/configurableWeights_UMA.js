@@ -4,6 +4,7 @@ const BFactory = artifacts.require('BFactory');
 const ConfigurableRightsPool = artifacts.require('ConfigurableRightsPool');
 const CRPFactory = artifacts.require('CRPFactory');
 const TToken = artifacts.require('TToken');
+const { time } = require('@openzeppelin/test-helpers');
 const truffleAssert = require('truffle-assertions');
 
 contract('configurableWeightsUMA', async (accounts) => {
@@ -32,6 +33,7 @@ contract('configurableWeightsUMA', async (accounts) => {
         let dai;
         let xyz;
         let abc;
+        let startBlock;
         const startWeights = [toWei('1'), toWei('39')];
         const startBalances = [toWei('80000'), toWei('40')];
         let blockRange;
@@ -94,7 +96,7 @@ contract('configurableWeightsUMA', async (accounts) => {
                 // get current block number
                 const block = await web3.eth.getBlock('latest');
                 console.log("Block of updateWeightsGradually() call: "+block.number)
-                const startBlock = block.number + 3;
+                startBlock = block.number + 10;
                 const endBlock = startBlock + blockRange;
                 const endWeights = [toWei('39'), toWei('1')];
                 console.log(`Start block for June -> July flipping: ${startBlock}`);
@@ -106,13 +108,15 @@ contract('configurableWeightsUMA', async (accounts) => {
             it('Should revert because too early to pokeWeights()', async () => {
                 const block = await web3.eth.getBlock('latest');
                 console.log(`Block: ${block.number}`);
-                truffleAssert.reverts(
+                await truffleAssert.reverts(
                     controller.pokeWeights(),
                     'ERR_CANT_POKE_YET',
                 );
             });
 
             it('Cannot manually update when an automatic one is running', async () => {
+                const block = await web3.eth.getBlock('latest');
+                console.log(`Block: ${block.number}`);
                 await truffleAssert.reverts(
                     controller.updateWeight(weth.address, toWei('20')),
                     'ERR_NO_UPDATE_DURING_GRADUAL',
@@ -120,6 +124,8 @@ contract('configurableWeightsUMA', async (accounts) => {
             });
 
             it('Cannot start adding a token when an automatic update is running', async () => {
+                const block = await web3.eth.getBlock('latest');
+                console.log(`Block: ${block.number}`);
                 await truffleAssert.reverts(
                     // Need to add one that's not bound, and also have the add/remove token permission set
                     // to trigger this error
@@ -132,8 +138,16 @@ contract('configurableWeightsUMA', async (accounts) => {
                 let i;
                 let weightXYZ;
                 let weightWETH;
-                let block;
 
+                let block = await web3.eth.getBlock('latest');
+                console.log(`Block: ${block.number}`);                        
+                while (block.number < startBlock) {
+                    // Wait for the start block
+                    block = await web3.eth.getBlock('latest');
+                    console.log(`Still waiting. Block: ${block.number}`);
+                    await time.advanceBlock();
+                }
+               
                 for (i = 0; i < blockRange + 10; i++) {
                     weightXYZ = await controller.getDenormalizedWeight(XYZ);
                     weightWETH = await controller.getDenormalizedWeight(WETH);
@@ -150,7 +164,7 @@ contract('configurableWeightsUMA', async (accounts) => {
                 // get current block number
                 const block = await web3.eth.getBlock('latest');
                 // console.log("Block of updateWeightsGradually() call: "+block.number)
-                const startBlock = block.number + 3;
+                startBlock = block.number + 10;
                 const endBlock = startBlock + blockRange;
                 const endWeights = [toWei('1'), toWei('39')];
                 console.log(`Start block for July -> August flipping: ${startBlock}`);
@@ -160,17 +174,26 @@ contract('configurableWeightsUMA', async (accounts) => {
             });
 
             it('Should revert because too early to pokeWeights()', async () => {
-                // block = await web3.eth.getBlock("latest");
-                // console.log("Block: "+block.number);
-                truffleAssert.reverts(
+                block = await web3.eth.getBlock("latest");
+                console.log("Block: "+block.number);
+                await truffleAssert.reverts(
                     controller.pokeWeights(),
                     'ERR_CANT_POKE_YET',
                 );
             });
 
-            it('Should be able to pokeWeights()', async () => {
+            it('Should be able to pokeWeights() again', async () => {
                 let i;
                 const endWeights = [toWei('1'), toWei('29'), toWei('10')];
+
+                let block = await web3.eth.getBlock('latest');
+                console.log(`Block: ${block.number}`);                        
+                while (block.number < startBlock) {
+                    // Wait for the start block
+                    block = await web3.eth.getBlock('latest');
+                    console.log(`Still waiting. Block: ${block.number}`);    
+                    await time.advanceBlock()  
+                }
 
                 for (i = 0; i < blockRange+10; i++) {
                     const weightXYZ = await controller.getDenormalizedWeight(XYZ);
