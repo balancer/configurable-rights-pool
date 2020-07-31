@@ -170,8 +170,21 @@ contract('configurableWeights_withSwaps', async (accounts) => {
                     (weightWETH*2.5/10**18).toString() + '%');
                 await controller.pokeWeights();
 
-                // Swap back and forth
+                /*
+                if (i % 3 == 0) {
+                    // Randomly transfer tokens to the pool
+                    xferAmount = Math.floor((Math.random() * 10) + 1).toString();
+                    if (Math.random() > 0.5) {
+                        console.log(`Randomly transferring ${xferAmount} WETH into pool`)
+                        weth.transfer(underlyingPool.address, toWei(xferAmount), {from: user1});
+                    }
+                    else {
+                        console.log(`Randomly transferring ${xferAmount} XYZ into pool`)
+                        xyz.transfer(underlyingPool.address, toWei(xferAmount), {from: user2});
+                    }
+                } */
 
+                // Swap back and forth
                 if (i % 2 === 0) {
                     swapAmount = Math.floor((Math.random() * 10) + 1).toString();
                     console.log(`Swapping ${swapAmount} XYZ for WETH`);

@@ -6,6 +6,7 @@ interface IBPool {
     function getBalance(address token) external view returns (uint);
     function totalSupply() external view returns (uint);
     function rebind(address token, uint balance, uint denorm) external;
+    function getSwapFee() external view returns (uint);
     function setSwapFee(uint swapFee) external;
     function setPublicSwap(bool publicSwap) external;
     function isPublicSwap() external view returns (bool);

@@ -150,10 +150,9 @@ You cannot exit 100% using Pool Tokens (rebind will revert). It is possible to d
 Our vision is to provide a set of configurable Balancer Pools that are feature-rich and flexible enough to be used "out of the box" in most cases, and easily extended otherwise.
 <br><br>Beyond the standard Configurable Rights Pool, the first such template (used by [Ampleforth](https://ampleforth.org)) is designed for pools containing tokens with "Elastic Supply" (e.g., AMPL). With "Fixed Supply" tokens, notably Bitcoin, your wallet balance remains constant (one hopes), but the price responds to supply and demand. <br><br>By contrast, Elastic Supply tokens expand and contract the **supply** in response to demand. The balance in your wallet <em>can change</em> (after each daily **rebase**) - but you always own a fixed proportion of the total number of tokens.
 
-<br>These go in the [templates](https://github.com/balancer-labs/configurable-rights-pool/tree/master/contracts/templates) directory. The first is `ElasticSupplyPool` (and corresponding `ESPFactory`)
+These go in the [templates](https://github.com/balancer-labs/configurable-rights-pool/tree/master/contracts/templates) directory. The first is `ElasticSupplyPool` (and corresponding `ESPFactory`)
 
-<br>All the current projects (that we know about) based on Balancer are featured on our main [web site](https://balancer.finance). Want to add yours to the list? Drop us a line at 
-<contact@balancer.finance>
+Questions about Smart Pools? Join us on [Discord](https://discord.gg/qjFcczk)! Want to integrate configurable smart pools into your own project? The smart-pool-dev channel is for you.
 
 ## Getting Started - Local Testing
 

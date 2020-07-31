@@ -30,6 +30,11 @@ import "../libraries/SmartPoolManager.sol";
  *      2: canChangeWeights - can bind new token weights (allowed by default in base pool)
  *      3: canAddRemoveTokens - can bind/unbind tokens (allowed by default in base pool)
  *      4: canWhitelistLPs - can restrict LPs to a whitelist
+ *
+ * Note that functions called on bPool and bFactory may look like internal calls,
+ *   but since they are contracts accessed through an interface, they are really external.
+ * To make this explicit, we could write "IBPool(address(bPool)).function()" everywhere,
+ *   instead of "bPool.function()".
  */
 contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyGuard {
     using BalancerSafeMath for uint;
@@ -47,6 +52,8 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
     SmartPoolManager.NewToken private _newToken;
 
     // Fee is initialized on creation, and can be changed if permission is set
+    // Only needed for temporary storage between construction and createPool
+    // Thereafter, the swap fee should always be read from the underlying pool
     uint private _swapFee;
 
     // Store the list of tokens in the pool, and balances
@@ -108,8 +115,10 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
         _;
     }
 
-    // Default values for these (cannot pass them into the constructor; stack too deep)
-    // They are not needed until updateWeightsGradually, so just pass them in there
+    // Default values for these variables (used only in updateWeightsGradually), set in the constructor
+    // Pools without permission to update weights cannot use them anyway, and should call
+    //   the default createPool() function.
+    // To override these defaults, pass them into the overloaded createPool()
     uint public constant DEFAULT_MIN_WEIGHT_CHANGE_BLOCK_PERIOD = 10;
     uint public constant DEFAULT_ADD_TOKEN_TIME_LOCK_IN_BLOCKS = 10;
 
@@ -117,6 +126,10 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
 
     /**
      * @notice Construct a new Configurable Rights Pool (wrapper around BPool)
+     * @dev _tokens and _swapFee are only used for temporary storage between construction
+     *      and create pool, and should not be used thereafter! _tokens is destroyed in
+     *      createPool to prevent this, and _swapFee is kept in sync (defensively), but
+     *      should never be used except in this constructor and createPool()
      * @param factoryAddress - the BPoolFactory used to create the underlying pool
      * @param tokenSymbolString - Token symbol (named thus to avoid shadowing)
      * @param tokens - list of tokens to include
@@ -124,7 +137,6 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
      * @param startWeights - initial token weights
      * @param swapFee - initial swap fee (will set on the core pool after pool creation)
      * @param rights - Set of permissions we are assigning to this smart pool
-     *                 Would ideally not want to hard-code the length, but not sure how it interacts with structures
      */
     constructor(
         address factoryAddress,
@@ -156,7 +168,7 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
         _swapFee = swapFee;
         _minimumWeightChangeBlockPeriod = DEFAULT_MIN_WEIGHT_CHANGE_BLOCK_PERIOD;
         _addTokenTimeLockInBlocks = DEFAULT_ADD_TOKEN_TIME_LOCK_IN_BLOCKS;
-        // Initializing unnecessarily for documentation (0 means no gradual weight change has been initiated)
+        // Initializing (unnecessarily) for documentation - 0 means no gradual weight change has been initiated
         _startBlock = 0;
         _rights = rights;
     }
@@ -207,7 +219,7 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
 
     /**
      * @notice Get the denormalized weight of a token
-     * @dev _viewlock_ to prevent calling if it's being updated
+     * @dev viewlock to prevent calling if it's being updated
      * @return token weight
      */
     function getDenormalizedWeight(address token)
@@ -223,6 +235,7 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
     /**
      * @notice Set the swap fee on the underlying pool
      * @dev Keep the local version and core in sync (see below)
+     *      bPool is a contract interface; function calls on it are external
      * @param swapFee in Wei
      */
     function setSwapFee(uint swapFee)
@@ -235,16 +248,10 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
     {
         require(_rights.canChangeSwapFee, "ERR_NOT_CONFIGURABLE_SWAP_FEE");
 
-        // Also need to set the local variable, because it is accessed directly
-        // in the wrapped pool functions, and so could get out of sync with core
-        //
-        // Probably best practice to read from the core pool instead of using this
-        // again, but setting it is defensive programming
-        // The alternative is to not have this "pending swap fee" at all, but set it
-        // to the default on creation, and they can only change it with permission
-        //
-        // (That would lose the functionality of setting a fixed fee different from the
-        // default, though.)
+        // Like the _token list, this is only needed between construction and createPool
+        // The _token list is destroyed in createPool to prevent later use, but _swapFee
+        // is just a uint, so keep it in sync defensively, but always read from the
+        // underlying pool after it's created
         _swapFee = swapFee;
 
         // Underlying pool will check against min/max fee
@@ -254,6 +261,7 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
     /**
      * @notice Getter for the publicSwap field on the underlying pool
      * @dev nonReentrantView, because setPublicSwap is nonReentrant
+     *      bPool is a contract interface; function calls on it are external
      * @return Current value of isPublicSwap
      */
     function isPublicSwap()
@@ -274,6 +282,8 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
      *      swapping back on. They're not supposed to finalize the underlying pool... would defeat the
      *      smart pool functions. (Only the owner can finalize the pool - which is this contract -
      *      so there is no risk from outside.)
+     *
+     *      bPool is a contract interface; function calls on it are external
      * @param publicSwap new value of the swap
      */
     function setPublicSwap(bool publicSwap)
@@ -294,11 +304,15 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
      * @dev Initialize the swap fee to the value provided in the CRP constructor
      *      Can be changed if the canChangeSwapFee permission is enabled
      *      Time parameters will be fixed at these values
-     *      NB:
+     *
+     *      If this contract doesn't have canChangeWeights permission - or you want to use the default
+     *      values, the block time arguments
+     *      are not needed, and you can just call the single-argument createPool()
+     *
      *      Code is duplicated in the overloaded createPool! If you change one, change the other!
      *      Unfortunately I cannot call this.createPool(initialSupply) from the overloaded one,
      *      because msg.sender will be different (contract address vs external account), and the
-     *      token transfers would fail. Overloading is tricky with external functions.
+     *      token transfers would fail
      * @param initialSupply starting token balance
      * @param minimumWeightChangeBlockPeriod - Enforce a minimum time between the start and end blocks
      * @param addTokenTimeLockInBlocks - Enforce a mandatory wait time between updates
@@ -330,13 +344,15 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
         // There is technically reentrancy here, since we're making external calls and
         //   then transferring tokens. However, the external calls are all to the underlying BPool
 
-        // Deploy new BPool
+        // Deploy new BPool (bFactory and bPool are interfaces; all calls are external)
         bPool = bFactory.newBPool();
+
         // EXIT_FEE must always be zero, or ConfigurableRightsPool._pushUnderlying will fail
         require(bPool.EXIT_FEE() == 0, "ERR_NONZERO_EXIT_FEE");
         require(BalancerConstants.EXIT_FEE == 0, "ERR_NONZERO_EXIT_FEE");
 
         // Set fee to the initial value set in the constructor
+        // Hereafter, read the swapFee from the underlying pool, not the local state variable
         bPool.setSwapFee(_swapFee);
 
         for (uint i = 0; i < _tokens.length; i++) {
@@ -355,7 +371,8 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
             bPool.bind(t, bal, denorm);
         }
 
-        // Clear local storage to prevent use of it after createPool
+        // Destroy local storage token list to prevent use of it after createPool
+        // Hereafter, the token list is maintained by the underlying pool
         while (_tokens.length > 0) {
             _tokens.pop();
         }
@@ -387,15 +404,17 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
         require(initialSupply > 0, "ERR_INIT_SUPPLY");
 
         // There is technically reentrancy here, since we're making external calls and
-        //   then transferring tokens. However, the external calls are all to the underlying BPool
+        // then transferring tokens. However, the external calls are all to the underlying BPool
 
-        // Deploy new BPool
+        // Deploy new BPool (bFactory and bPool are interfaces; all calls are external)
         bPool = bFactory.newBPool();
+
         // EXIT_FEE must always be zero, or ConfigurableRightsPool._pushUnderlying will fail
         require(bPool.EXIT_FEE() == 0, "ERR_NONZERO_EXIT_FEE");
         require(BalancerConstants.EXIT_FEE == 0, "ERR_NONZERO_EXIT_FEE");
 
         // Set fee to the initial value set in the constructor
+        // Hereafter, read the swapFee from the underlying pool, not the local state variable
         bPool.setSwapFee(_swapFee);
 
         for (uint i = 0; i < _tokens.length; i++) {
@@ -409,9 +428,6 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
             returnValue = IERC20(t).approve(address(bPool), uint(-1));
             require(returnValue, "ERR_ERC20_FALSE");
 
-            // Note that this will actually duplicate the array of tokens
-            //   This contract has _tokens, and so does the underlying pool
-            // Binding pushes a token to the end of the underlying pool's array
             bPool.bind(t, bal, denorm);
         }
 
@@ -600,6 +616,7 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
 
      /**
      * @notice Remove a token from the pool
+     * @dev bPool is a contract interface; function calls on it are external
      * @param token - token to remove
      */
     function removeToken(address token)
@@ -627,6 +644,7 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
     /**
      * @notice Join a pool
      * @dev Emits a LogJoin event (for each token)
+     *      bPool is a contract interface; function calls on it are external
      * @param poolAmountOut - number of pool tokens to receive
      * @param maxAmountsIn - Max amount of asset tokens to spend
      */
@@ -671,6 +689,7 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
     /**
      * @notice Exit a pool - redeem pool tokens for underlying assets
      * @dev Emits a LogExit event for each token
+     *      bPool is a contract interface; function calls on it are external
      * @param poolAmountIn - amount of pool tokens to redeem
      * @param minAmountsOut - minimum amount of asset tokens to receive
      */
@@ -737,7 +756,6 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
         poolAmountOut = SmartPoolManager.joinswapExternAmountIn(
                             this,
                             bPool,
-                            _swapFee,
                             tokenIn,
                             tokenAmountIn,
                             minPoolAmountOut
@@ -779,7 +797,6 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
         tokenAmountIn = SmartPoolManager.joinswapPoolAmountOut(
                             this,
                             bPool,
-                            _swapFee,
                             tokenIn,
                             poolAmountOut,
                             maxAmountIn
@@ -821,7 +838,6 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
          uint amountOut) = SmartPoolManager.exitswapPoolAmountIn(
                                this,
                                bPool,
-                               _swapFee,
                                tokenOut,
                                poolAmountIn,
                                minAmountOut
@@ -867,7 +883,6 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
          uint amountIn) = SmartPoolManager.exitswapExternAmountOut(
                               this,
                               bPool,
-                              _swapFee,
                               tokenOut,
                               tokenAmountOut,
                               maxPoolAmountIn
@@ -949,6 +964,7 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
     }
 
     // Rebind BPool and pull tokens from address
+    // bPool is a contract interface; function calls on it are external
     function _pullUnderlying(address erc20, address from, uint amount) internal needsBPool {
         // Gets current Balance of token i, Bi, and weight of token i, Wi, from BPool.
         uint tokenBalance = bPool.getBalance(erc20);
@@ -960,6 +976,7 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
     }
 
     // Rebind BPool and push tokens to address
+    // bPool is a contract interface; function calls on it are external
     function _pushUnderlying(address erc20, address to, uint amount) internal needsBPool {
         // Gets current Balance of token i, Bi, and weight of token i, Wi, from BPool.
         uint tokenBalance = bPool.getBalance(erc20);
@@ -989,9 +1006,7 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
     }
 
     // "Public" versions that can safely be called from SmartPoolManager
-    // If called from external accounts, will fail if not controller
-    // Allows the contract itself to call them internally
-    // Tools suggest they should be external - but they must be public!
+    // Allows only the contract itself to call them (not the controller or any external account)
 
     function mintPoolShareFromLib(uint amount) public {
         require (msg.sender == address(this), "ERR_NOT_CONTROLLER");

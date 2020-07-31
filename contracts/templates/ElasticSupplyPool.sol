@@ -31,6 +31,11 @@ import "../../libraries/SmartPoolManager.sol";
  *                            the base class methods of changing weights, which do transfer tokens, are disabled
  *      3: canAddRemoveTokens - can bind/unbind tokens (allowed by default in base pool)
  *      4: canWhitelistLPs - can restrict LPs to a whitelist
+ *
+ * Note that functions called on bPool may look like internal calls,
+ *   but since they are contracts accessed through an interface, they are really external.
+ * To make this explicit, we could write "IBPool(address(bPool)).function()" everywhere,
+ *   instead of "bPool.function()".
  */
 contract ElasticSupplyPool is ConfigurableRightsPool {
     using BalancerSafeMath for uint;
@@ -183,6 +188,7 @@ contract ElasticSupplyPool is ConfigurableRightsPool {
 
     /**
      * @notice Update the weight of a token without changing the price (or transferring tokens)
+     * @dev bPool is a contract interface; function calls on it are external
      * @param token - address of the token to adjust
      */
     function resyncWeight(address token)
@@ -197,23 +203,30 @@ contract ElasticSupplyPool is ConfigurableRightsPool {
         require(this.hasPermission(RightsManager.Permissions.CHANGE_WEIGHTS), "ERR_NOT_CONFIGURABLE_WEIGHTS");
         // Just being defensive here (e.g., against future subclasses)
         // There should be no way to set this in this contract
-        require(super.getStartBlock() == 0, "ERR_NO_UPDATE_DURING_GRADUAL");
-        require(bPool.isBound(token), "ERR_NOT_BOUND");
+        require(ConfigurableRightsPool.getStartBlock() == 0, "ERR_NO_UPDATE_DURING_GRADUAL");
+        require(IBPool(address(bPool)).isBound(token), "ERR_NOT_BOUND");
 
-        uint currentBalance = bPool.getBalance(token);
-        bPool.gulp(token);
-        uint updatedBalance = bPool.getBalance(token);
+        // get cached balance
+        uint tokenBalanceBefore = IBPool(address(bPool)).getBalance(token);
 
-        if(updatedBalance == currentBalance) {
+        // Sync balance
+        IBPool(address(bPool)).gulp(token);
+
+        // get new balance
+        uint tokenBalanceAfter = IBPool(address(bPool)).getBalance(token);
+
+        // No-Op
+        if(tokenBalanceBefore == tokenBalanceAfter) {
             return;
         }
 
-        uint currentWeight = bPool.getDenormalizedWeight(token);
-        uint newWeight = BalancerSafeMath.bdiv(
-            BalancerSafeMath.bmul(currentWeight, updatedBalance),
-            currentBalance
+        uint weightBefore = IBPool(address(bPool)).getDenormalizedWeight(token);
+
+        uint weightAfter = BalancerSafeMath.bdiv(
+            BalancerSafeMath.bmul(weightBefore, tokenBalanceAfter),
+            tokenBalanceBefore
         );
 
-        bPool.rebind(token, updatedBalance, newWeight);
+        IBPool(address(bPool)).rebind(token, tokenBalanceAfter, weightAfter);
     }
 }

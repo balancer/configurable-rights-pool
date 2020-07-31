@@ -27,7 +27,6 @@ library SmartPoolManager {
     }
 
     // updateWeight and pokeWeights are unavoidably long
-
     /* solhint-disable function-max-lines */
 
     /**
@@ -50,6 +49,7 @@ library SmartPoolManager {
         require(newWeight <= BalancerConstants.MAX_WEIGHT, "ERR_MAX_WEIGHT");
 
         uint currentWeight = bPool.getDenormalizedWeight(token);
+        // Save gas; return immediately on NOOP
         if (currentWeight == newWeight) {
              return;
         }
@@ -362,12 +362,6 @@ library SmartPoolManager {
         startWeights = new uint[](tokens.length);
 
         // Check that endWeights are valid now to avoid reverting in a future pokeWeights call
-        // *Could* set startWeights now, and check for the case of newWeights=startWeights, and
-        // return in that case.
-        //
-        // Such a call could be used to prevent anyone from starting a weight update.
-        // You could have an endBlock years in the future, and set the newWeights equal to the current;
-        // then no one could update the weights for years
         //
         // This loop contains external calls
         // External calls are to math libraries or the underlying pool, so low risk
@@ -383,6 +377,10 @@ library SmartPoolManager {
         if (block.number > startBlock && block.number < endBlock) {
             // This means the weight update should start ASAP
             // Moving the start block up prevents a big jump/discontinuity in the weights
+            //
+            // Only valid within the startBlock - endBlock period!
+            // Should not happen, but defensively check that we aren't
+            // setting the start point past the end point
             actualStartBlock = block.number;
         }
         else{
@@ -490,7 +488,6 @@ library SmartPoolManager {
      *         System calculates the pool token amount
      * @param self - ConfigurableRightsPool instance calling the library
      * @param bPool - Core BPool the CRP is wrapping
-     * @param swapFee - Current swap fee of the underlying pool
      * @param tokenIn - which token we're transferring in
      * @param tokenAmountIn - amount of deposit
      * @param minPoolAmountOut - minimum of pool tokens to receive
@@ -499,7 +496,6 @@ library SmartPoolManager {
     function joinswapExternAmountIn(
         ConfigurableRightsPool self,
         IBPool bPool,
-        uint swapFee,
         address tokenIn,
         uint tokenAmountIn,
         uint minPoolAmountOut
@@ -519,7 +515,7 @@ library SmartPoolManager {
                             self.totalSupply(),
                             bPool.getTotalDenormalizedWeight(),
                             tokenAmountIn,
-                            swapFee
+                            bPool.getSwapFee()
                         );
 
         require(poolAmountOut >= minPoolAmountOut, "ERR_LIMIT_OUT");
@@ -530,7 +526,6 @@ library SmartPoolManager {
      *         To receive an exact amount of pool tokens out. System calculates the deposit amount
      * @param self - ConfigurableRightsPool instance calling the library
      * @param bPool - Core BPool the CRP is wrapping
-     * @param swapFee - Current swap fee of the underlying pool
      * @param tokenIn - which token we're transferring in (system calculates amount required)
      * @param poolAmountOut - amount of pool tokens to be received
      * @param maxAmountIn - Maximum asset tokens that can be pulled to pay for the pool tokens
@@ -539,7 +534,6 @@ library SmartPoolManager {
     function joinswapPoolAmountOut(
         ConfigurableRightsPool self,
         IBPool bPool,
-        uint swapFee,
         address tokenIn,
         uint poolAmountOut,
         uint maxAmountIn
@@ -556,7 +550,7 @@ library SmartPoolManager {
                             self.totalSupply(),
                             bPool.getTotalDenormalizedWeight(),
                             poolAmountOut,
-                            swapFee
+                            bPool.getSwapFee()
                         );
 
         require(tokenAmountIn != 0, "ERR_MATH_APPROX");
@@ -572,7 +566,6 @@ library SmartPoolManager {
      *         Asset must be present in the pool, and will incur an EXIT_FEE (if set to non-zero)
      * @param self - ConfigurableRightsPool instance calling the library
      * @param bPool - Core BPool the CRP is wrapping
-     * @param swapFee - Current swap fee of the underlying pool
      * @param tokenOut - which token the caller wants to receive
      * @param poolAmountIn - amount of pool tokens to redeem
      * @param minAmountOut - minimum asset tokens to receive
@@ -582,7 +575,6 @@ library SmartPoolManager {
     function exitswapPoolAmountIn(
         ConfigurableRightsPool self,
         IBPool bPool,
-        uint swapFee,
         address tokenOut,
         uint poolAmountIn,
         uint minAmountOut
@@ -599,7 +591,7 @@ library SmartPoolManager {
                             self.totalSupply(),
                             bPool.getTotalDenormalizedWeight(),
                             poolAmountIn,
-                            swapFee
+                            bPool.getSwapFee()
                         );
 
         require(tokenAmountOut >= minAmountOut, "ERR_LIMIT_OUT");
@@ -615,7 +607,6 @@ library SmartPoolManager {
      *         Asset must be present in the pool
      * @param self - ConfigurableRightsPool instance calling the library
      * @param bPool - Core BPool the CRP is wrapping
-     * @param swapFee - Current swap fee of the underlying pool
      * @param tokenOut - which token the caller wants to receive
      * @param tokenAmountOut - amount of underlying asset tokens to receive
      * @param maxPoolAmountIn - maximum pool tokens to be redeemed
@@ -625,7 +616,6 @@ library SmartPoolManager {
     function exitswapExternAmountOut(
         ConfigurableRightsPool self,
         IBPool bPool,
-        uint swapFee,
         address tokenOut,
         uint tokenAmountOut,
         uint maxPoolAmountIn
@@ -644,7 +634,7 @@ library SmartPoolManager {
                             self.totalSupply(),
                             bPool.getTotalDenormalizedWeight(),
                             tokenAmountOut,
-                            swapFee
+                            bPool.getSwapFee()
                         );
 
         require(poolAmountIn != 0, "ERR_MATH_APPROX");
