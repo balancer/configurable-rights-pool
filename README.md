@@ -1,5 +1,7 @@
 # Configurable Rights Pool
 
+<em style="color:orange">WARNING: this code has not been fully audited. Sam Sun has done a one day review, but a longer audit will take place later in August 2020. The code as it stands today is meant to be used for testing/development purposes only. DO NOT add significant amounts of funds to smart pools using this repo before the proper audit takes place.</em>
+
 This is a smart pool factory that allows anyone to deploy smart pools with (in the reference implementation) five 
 different rights that can be individually chosen:
 

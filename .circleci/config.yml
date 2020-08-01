@@ -107,7 +107,4 @@ workflows:
       - coverage:
           requires:
             - build
-      - slither:
-          requires:
-            - build
       

@@ -6,6 +6,7 @@ const ConfigurableRightsPool = artifacts.require('ConfigurableRightsPool');
 const CRPFactory = artifacts.require('CRPFactory');
 const TToken = artifacts.require('TToken');
 const truffleAssert = require('truffle-assertions');
+const { assert } = require('chai');
 
 contract('configurableSwapFee', async (accounts) => {
     const admin = accounts[0];
@@ -164,6 +165,20 @@ contract('configurableSwapFee', async (accounts) => {
             crpPool.setPublicSwap(false),
             'ERR_NOT_PAUSABLE_SWAP',
         );
+    });
+
+    it('Should not be able to bypass crpPool', async () => {
+        const bPoolAddr = await crpPool.bPool();
+        const bPool = await BPool.at(bPoolAddr);
+
+        let oldSwapFee = await bPool.getSwapFee();
+        await truffleAssert.reverts(
+            bPool.setSwapFee(toWei('0.007')),
+            'ERR_NOT_CONTROLLER'
+        );
+        let newSwapFee = await bPool.getSwapFee();
+
+        assert.equal(newSwapFee - oldSwapFee, 0);
     });
 
     it('Configurable weight should revert because non-permissioned', async () => {

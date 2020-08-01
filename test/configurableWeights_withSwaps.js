@@ -17,7 +17,7 @@ contract('configurableWeights_withSwaps', async (accounts) => {
     const { toWei, fromWei } = web3.utils;
 
     const MAX = web3.utils.toTwosComplement(-1);
-    const errorDelta = 10 ** -8;
+    const errorDelta = 10 ** -4;
 
     const SYMBOL = 'BSP';
     const permissions = {
@@ -170,10 +170,9 @@ contract('configurableWeights_withSwaps', async (accounts) => {
                     (weightWETH*2.5/10**18).toString() + '%');
                 await controller.pokeWeights();
 
-                /*
                 if (i % 3 == 0) {
                     // Randomly transfer tokens to the pool
-                    xferAmount = Math.floor((Math.random() * 10) + 1).toString();
+                    xferAmount = Math.floor((Math.random() * 3) + 1).toString();
                     if (Math.random() > 0.5) {
                         console.log(`Randomly transferring ${xferAmount} WETH into pool`)
                         weth.transfer(underlyingPool.address, toWei(xferAmount), {from: user1});
@@ -182,7 +181,14 @@ contract('configurableWeights_withSwaps', async (accounts) => {
                         console.log(`Randomly transferring ${xferAmount} XYZ into pool`)
                         xyz.transfer(underlyingPool.address, toWei(xferAmount), {from: user2});
                     }
-                } */
+
+                    // Transferring tokens randomly into the pool causes
+                    //   _records[token].balance (used by the BPool methods like swapExactAmountIn)
+                    //   to get out of sync with the ERC20.balanceOf figure
+                    //
+                    await underlyingPool.gulp(XYZ);
+                    await underlyingPool.gulp(WETH);
+                }
 
                 // Swap back and forth
                 if (i % 2 === 0) {
