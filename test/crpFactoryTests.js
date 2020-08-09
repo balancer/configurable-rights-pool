@@ -34,6 +34,7 @@ contract('CRPFactory', async (accounts) => {
         canChangeWeights: false,
         canAddRemoveTokens: true,
         canWhitelistLPs: false,
+        canChangeCap: false,
     };
 
     // Can't seem to break it with this - possibly the optimizer is removing unused values?
@@ -46,6 +47,7 @@ contract('CRPFactory', async (accounts) => {
         canChangeWeights: false,
         canAddRemoveTokens: true,
         canWhitelistLPs: false,
+        canChangeCap: false,
         canMakeMischief: true,
         canOverflowArray: true,
         canBeThreeTooLong: true,

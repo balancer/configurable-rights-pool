@@ -37,6 +37,7 @@ contract('configurableLPNoWhitelist', async (accounts) => {
         canChangeWeights: false,
         canAddRemoveTokens: false,
         canWhitelistLPs: false,
+        canChangeCap: false,
     };
 
     before(async () => {

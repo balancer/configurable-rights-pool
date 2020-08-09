@@ -36,6 +36,7 @@ contract('configurableSwapFee', async (accounts) => {
         canChangeWeights: false,
         canAddRemoveTokens: false,
         canWhitelistLPs: false,
+        canChangeCap: false,
     };
 
     before(async () => {
@@ -99,8 +100,6 @@ contract('configurableSwapFee', async (accounts) => {
     });
 
     it('crpPool should have correct rights set', async () => {
-        // const currentRights = await crpPool.getCurrentRights();
-        // assert.sameMembers(currentRights, [false, false, true, false]);
         const swapRight = await crpPool.hasPermission(1);
         assert.isTrue(swapRight);
 

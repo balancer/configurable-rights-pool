@@ -34,6 +34,7 @@ contract('crpPoolTests', async (accounts) => {
         canChangeWeights: true,
         canAddRemoveTokens: true,
         canWhitelistLPs: false,
+        canChangeCap: false,
     };
 
     let crpFactory; let bFactory; let bPool; let
@@ -146,6 +147,13 @@ contract('crpPoolTests', async (accounts) => {
         await truffleAssert.reverts(
             crpPool.createPool(toWei('100')),
             'ERR_IS_CREATED',
+        );
+    });
+
+    it('crpPool should not be able to set the cap without the right', async () => {
+        await truffleAssert.reverts(
+            crpPool.setCap(toWei('1000')),
+            'ERR_CANNOT_CHANGE_CAP',
         );
     });
 

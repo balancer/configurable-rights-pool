@@ -59,6 +59,7 @@ contract('configurableWeights', async (accounts) => {
         canChangeWeights: true,
         canAddRemoveTokens: false,
         canWhitelistLPs: false,
+        canChangeCap: false,
     };
 
     let validEndBlock; let
@@ -130,8 +131,6 @@ contract('configurableWeights', async (accounts) => {
         });
 
         it('crpPool should have correct rights set', async () => {
-            // const currentRights = await crpPool.getCurrentRights();
-            // assert.sameMembers(currentRights, [false, false, true, false]);
             const reweightRight = await crpPool.hasPermission(2);
             assert.isTrue(reweightRight);
 

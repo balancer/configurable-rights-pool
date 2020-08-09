@@ -22,6 +22,7 @@ contract('configurableWeights_withTx', async (accounts) => {
         canChangeWeights: true,
         canAddRemoveTokens: true,
         canWhitelistLPs: false,
+        canChangeCap: false,
     };
 
     describe('Factory', () => {

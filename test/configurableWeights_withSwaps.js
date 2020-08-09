@@ -26,6 +26,7 @@ contract('configurableWeights_withSwaps', async (accounts) => {
         canChangeWeights: true,
         canAddRemoveTokens: true,
         canWhitelistLPs: false,
+        canChangeCap: false,
     };
 
     describe('CWS Factory', () => {

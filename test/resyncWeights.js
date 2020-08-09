@@ -32,6 +32,7 @@ contract('elasticSupplyPool', async (accounts) => {
         canChangeWeights: true,
         canAddRemoveTokens: false,
         canWhitelistLPs: false,
+        canChangeCap: false,
     };
 
     describe('resyncWeight', () => {

@@ -44,6 +44,7 @@ contract('configurableAddRemoveTokens', async (accounts) => {
         canChangeWeights: false,
         canAddRemoveTokens: true,
         canWhitelistLPs: false,
+        canChangeCap: false,
     };
 
     before(async () => {
@@ -112,8 +113,6 @@ contract('configurableAddRemoveTokens', async (accounts) => {
     });
 
     it('crpPool should have correct rights set', async () => {
-        // const currentRights = await crpPool.getCurrentRights();
-        // assert.sameMembers(currentRights, [false, false, false, true]);
         const addRemoveRight = await crpPool.hasPermission(3);
         assert.isTrue(addRemoveRight);
 

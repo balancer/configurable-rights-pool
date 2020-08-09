@@ -12,6 +12,7 @@ pragma experimental ABIEncoderV2;
  *      canChangeSwapFee - can setSwapFee after initialization (by default, it is fixed at create time)
  *      canChangeWeights - can bind new token weights (allowed by default in base pool)
  *      canAddRemoveTokens - can bind/unbind tokens (allowed by default in base pool)
+ *      canChangeCap - can change the BSP cap (max # of pool tokens)
  */
 library RightsManager {
 
@@ -21,7 +22,8 @@ library RightsManager {
                        CHANGE_SWAP_FEE,
                        CHANGE_WEIGHTS,
                        ADD_REMOVE_TOKENS,
-                       WHITELIST_LPS }
+                       WHITELIST_LPS,
+                       CHANGE_CAP }
 
     struct Rights {
         bool canPauseSwapping;
@@ -29,14 +31,16 @@ library RightsManager {
         bool canChangeWeights;
         bool canAddRemoveTokens;
         bool canWhitelistLPs;
+        bool canChangeCap;
     }
 
     // State variables (can only be constants in a library)
     bool public constant DEFAULT_CAN_PAUSE_SWAPPING = false;
-    bool public constant DEFAULT_CAN_CHANGE_SWAP_FEE = false;
+    bool public constant DEFAULT_CAN_CHANGE_SWAP_FEE = true;
     bool public constant DEFAULT_CAN_CHANGE_WEIGHTS = true;
-    bool public constant DEFAULT_CAN_ADD_REMOVE_TOKENS = true;
+    bool public constant DEFAULT_CAN_ADD_REMOVE_TOKENS = false;
     bool public constant DEFAULT_CAN_WHITELIST_LPS = false;
+    bool public constant DEFAULT_CAN_CHANGE_CAP = false;
 
     // Functions
 
@@ -49,12 +53,16 @@ library RightsManager {
                           DEFAULT_CAN_CHANGE_SWAP_FEE,
                           DEFAULT_CAN_CHANGE_WEIGHTS,
                           DEFAULT_CAN_ADD_REMOVE_TOKENS,
-                          DEFAULT_CAN_WHITELIST_LPS);
+                          DEFAULT_CAN_WHITELIST_LPS,
+                          DEFAULT_CAN_CHANGE_CAP);
         }
         else {
-            return Rights(a[0], a[1], a[2], a[3], a[4]);
+            return Rights(a[0], a[1], a[2], a[3], a[4], a[5]);
         }
     }
+
+    // Though it is actually simple, the number of branches triggers code-complexity
+    /* solhint-disable code-complexity */
 
     /**
      * @notice Externally check permissions using the Enum
@@ -78,5 +86,10 @@ library RightsManager {
         else if (Permissions.WHITELIST_LPS == permission) {
             return self.canWhitelistLPs;
         }
+        else if (Permissions.CHANGE_CAP == permission) {
+            return self.canChangeCap;
+        }
     }
+
+    /* solhint-enable code-complexity */
 }

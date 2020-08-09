@@ -41,6 +41,7 @@ contract('pausableSwap', async (accounts) => {
         canChangeWeights: false,
         canAddRemoveTokens: false,
         canWhitelistLPs: false,
+        canChangeCap: false,
     };
 
     before(async () => {
@@ -106,8 +107,6 @@ contract('pausableSwap', async (accounts) => {
     });
 
     it('crpPool should have correct rights set', async () => {
-        // const currentRights = await crpPool.getCurrentRights();
-        // assert.sameMembers(currentRights, [true, false, false, false]);
         const swapRight = await crpPool.hasPermission(0);
         assert.isTrue(swapRight);
 

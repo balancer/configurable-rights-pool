@@ -30,6 +30,7 @@ import "../libraries/SmartPoolManager.sol";
  *      2: canChangeWeights - can bind new token weights (allowed by default in base pool)
  *      3: canAddRemoveTokens - can bind/unbind tokens (allowed by default in base pool)
  *      4: canWhitelistLPs - can restrict LPs to a whitelist
+ *      5: canChangeCap - can change the BSP cap (max # of pool tokens)
  *
  * Note that functions called on bPool and bFactory may look like internal calls,
  *   but since they are contracts accessed through an interface, they are really external.
@@ -80,6 +81,10 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
     // Whitelist of LPs (if configured)
     mapping(address => bool) private _liquidityProviderWhitelist;
 
+    // Cap on the pool size (i.e., # of tokens minted when joining)
+    // Limits the risk of experimental pools; failsafe/backup for fixed-size pools
+    uint private _bspCap;
+
     // Event declarations
 
     // Anonymous logger event - can only be filtered by contract address
@@ -102,6 +107,12 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
         uint tokenAmountOut
     );
 
+    event CapChanged(
+        address indexed caller,
+        uint oldCap,
+        uint newCap
+    );
+
     // Modifiers
 
     modifier logs() {
@@ -113,6 +124,14 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
     modifier needsBPool() {
         require(address(bPool) != address(0), "ERR_NOT_CREATED");
         _;
+    }
+
+    // Mark functions that mint pool tokens
+    // (If right is not enabled, cap will be MAX_UINT, so check will always pass)
+    modifier withinCap() {
+        _;
+        // Check after the function body runs
+        require(this.totalSupply() <= _bspCap, "ERR_CAP_LIMIT_REACHED");
     }
 
     // Default values for these variables (used only in updateWeightsGradually), set in the constructor
@@ -170,67 +189,12 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
         _addTokenTimeLockInBlocks = DEFAULT_ADD_TOKEN_TIME_LOCK_IN_BLOCKS;
         // Initializing (unnecessarily) for documentation - 0 means no gradual weight change has been initiated
         _startBlock = 0;
+        // By default, there is no cap (unlimited pool token minting)
+        _bspCap = BalancerConstants.MAX_UINT;
         _rights = rights;
     }
 
     // External functions
-
-    /**
-     * @notice Getter for the RightsManager contract
-     * @dev Convenience function to get the address of the RightsManager library (so clients can check version)
-     * @return address of the RightsManager library
-    */
-    function getRightsManagerVersion() external pure returns (address) {
-        return address(RightsManager);
-    }
-
-    /**
-     * @notice Getter for the BalancerSafeMath contract
-     * @dev Convenience function to get the address of the BalancerSafeMath library (so clients can check version)
-     * @return address of the BalancerSafeMath library
-    */
-    function getBalancerSafeMathVersion() external pure returns (address) {
-        return address(BalancerSafeMath);
-    }
-
-    /**
-     * @notice Getter for the SmartPoolManager contract
-     * @dev Convenience function to get the address of the SmartPoolManager library (so clients can check version)
-     * @return address of the SmartPoolManager library
-    */
-    function getSmartPoolManagerVersion() external pure returns (address) {
-        return address(SmartPoolManager);
-    }
-
-    /**
-     * @notice Getter for specific permissions
-     * @dev value of the enum is just the 0-based index in the enumeration
-     *      For instance canPauseSwapping is 0; canChangeWeights is 2
-     * @return token boolean true if we have the given permission
-    */
-    function hasPermission(RightsManager.Permissions permission)
-        external
-        view
-        virtual
-        returns(bool)
-    {
-        return RightsManager.hasPermission(_rights, permission);
-    }
-
-    /**
-     * @notice Get the denormalized weight of a token
-     * @dev viewlock to prevent calling if it's being updated
-     * @return token weight
-     */
-    function getDenormalizedWeight(address token)
-        external
-        view
-        viewlock
-        needsBPool
-        returns (uint)
-    {
-        return bPool.getDenormalizedWeight(token);
-    }
 
     /**
      * @notice Set the swap fee on the underlying pool
@@ -276,6 +240,41 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
     }
 
     /**
+     * @notice Getter for the cap
+     * @return current value of the cap
+     */
+    function getCap()
+        external
+        lock
+        returns (uint)
+    {
+        return _bspCap;
+    }
+
+    /**
+     * @notice Set the cap (max # of pool tokens)
+     * @dev _bspCap defaults in the constructor to unlimited
+     *      Can set to 0 (or anywhere below the current supply), to halt new investment
+     *      Prevent setting it before creating a pool, since createPool sets to intialSupply
+     *      (it does this to avoid an unlimited cap window between construction and createPool)
+     *      Therefore setting it before then has no effect, so should not be allowed
+     * @param newCap - new value of the cap
+     */
+    function setCap(uint newCap)
+        external
+        logs
+        lock
+        needsBPool
+        onlyOwner
+    {
+        require(_rights.canChangeCap, "ERR_CANNOT_CHANGE_CAP");
+
+        emit CapChanged(msg.sender, _bspCap, newCap);
+
+        _bspCap = newCap;
+    }
+
+    /**
      * @notice Set the public swap flag on the underlying pool
      * @dev If this smart pool has canPauseSwapping enabled, we can turn publicSwap off if it's already on
      *      Note that if they turn swapping off - but then finalize the pool - finalizing will turn the
@@ -298,6 +297,9 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
 
         bPool.setPublicSwap(publicSwap);
     }
+
+    // createPools functions exceed max lines, but many are requires; unavoidable
+    /* solhint-disable function-max-lines */
 
     /**
      * @notice Create a new Smart Pool - and set the block period time parameters
@@ -328,6 +330,9 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
         lock
         virtual
     {
+        require(address(bPool) == address(0), "ERR_IS_CREATED");
+        require(initialSupply > 0, "ERR_INIT_SUPPLY");
+
         require(minimumWeightChangeBlockPeriod >= BalancerConstants.MIN_WEIGHT_CHANGE_BLOCK_PERIOD,
                 "ERR_INVALID_BLOCK_PERIOD");
         require(addTokenTimeLockInBlocks <= minimumWeightChangeBlockPeriod,
@@ -337,9 +342,6 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
 
         _minimumWeightChangeBlockPeriod = minimumWeightChangeBlockPeriod;
         _addTokenTimeLockInBlocks = addTokenTimeLockInBlocks;
-
-        require(address(bPool) == address(0), "ERR_IS_CREATED");
-        require(initialSupply > 0, "ERR_INIT_SUPPLY");
 
         // There is technically reentrancy here, since we're making external calls and
         //   then transferring tokens. However, the external calls are all to the underlying BPool
@@ -355,6 +357,14 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
         // Hereafter, read the swapFee from the underlying pool, not the local state variable
         bPool.setSwapFee(_swapFee);
 
+        // If the controller can change the cap, initialize it to the initial supply
+        // Defensive programming, so that there is no gap between creating the pool
+        // (initialized to unlimited in the constructor), and setting the cap,
+        // which they will presumably do if they have this right.
+        if (_rights.canChangeCap) {
+            _bspCap = initialSupply;
+        }
+
         for (uint i = 0; i < _tokens.length; i++) {
             address t = _tokens[i];
             uint bal = _startBalances[i];
@@ -363,7 +373,7 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
             bool returnValue = IERC20(t).transferFrom(msg.sender, address(this), bal);
             require(returnValue, "ERR_ERC20_FALSE");
 
-            returnValue = IERC20(t).approve(address(bPool), uint(-1));
+            returnValue = IERC20(t).approve(address(bPool), BalancerConstants.MAX_UINT);
             require(returnValue, "ERR_ERC20_FALSE");
 
             // Binding pushes a token to the end of the underlying pool's array
@@ -417,6 +427,14 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
         // Hereafter, read the swapFee from the underlying pool, not the local state variable
         bPool.setSwapFee(_swapFee);
 
+        // If the controller can change the cap, initialize it to the initial supply
+        // Defensive programming, so that there is no gap between creating the pool
+        // (initialized to unlimited in the constructor), and setting the cap,
+        // which they will presumably do if they have this right.
+        if (_rights.canChangeCap) {
+            _bspCap = initialSupply;
+        }
+
         for (uint i = 0; i < _tokens.length; i++) {
             address t = _tokens[i];
             uint bal = _startBalances[i];
@@ -425,7 +443,7 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
             bool returnValue = IERC20(t).transferFrom(msg.sender, address(this), bal);
             require(returnValue, "ERR_ERC20_FALSE");
 
-            returnValue = IERC20(t).approve(address(bPool), uint(-1));
+            returnValue = IERC20(t).approve(address(bPool), BalancerConstants.MAX_UINT);
             require(returnValue, "ERR_ERC20_FALSE");
 
             bPool.bind(t, bal, denorm);
@@ -449,6 +467,8 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
         _mintPoolShare(initialSupply);
         _pushPoolShare(msg.sender, initialSupply);
     }
+
+    /* solhint-enable function-max-lines */
 
     /**
      * @notice Update the weight of an existing token
@@ -653,6 +673,7 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
         logs
         lock
         needsBPool
+        withinCap
     {
         require(!_rights.canWhitelistLPs || _liquidityProviderWhitelist[msg.sender],
                 "ERR_NOT_ON_WHITELIST");
@@ -747,6 +768,7 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
         logs
         lock
         needsBPool
+        withinCap
         returns (uint poolAmountOut)
     {
         require(!_rights.canWhitelistLPs || _liquidityProviderWhitelist[msg.sender],
@@ -788,6 +810,7 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
         logs
         lock
         needsBPool
+        withinCap
         returns (uint tokenAmountIn)
     {
         require(!_rights.canWhitelistLPs || _liquidityProviderWhitelist[msg.sender],
@@ -902,26 +925,6 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
     }
 
     /**
-     * @notice Check if an address is a liquidity provider
-     * @dev If the whitelist feature is not enabled, anyone can provide liquidity (assuming finalized)
-     * @return boolean value indicating whether the address can join a pool
-     */
-    function canProvideLiquidity(address provider)
-        external
-        view
-        returns(bool)
-    {
-        if (_rights.canWhitelistLPs) {
-            return _liquidityProviderWhitelist[provider];
-        }
-        else {
-            // Probably don't strictly need this (could just return true)
-            // But the null address can't provide funds
-            return provider != address(0);
-        }
-    }
-
-    /**
      * @notice Add to the whitelist of liquidity providers (if enabled)
      * @param provider - address of the liquidity provider
      */
@@ -954,14 +957,125 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
         _liquidityProviderWhitelist[provider] = false;
     }
 
+    /**
+     * @notice Check if an address is a liquidity provider
+     * @dev If the whitelist feature is not enabled, anyone can provide liquidity (assuming finalized)
+     * @return boolean value indicating whether the address can join a pool
+     */
+    function canProvideLiquidity(address provider)
+        external
+        view
+        returns(bool)
+    {
+        if (_rights.canWhitelistLPs) {
+            return _liquidityProviderWhitelist[provider];
+        }
+        else {
+            // Probably don't strictly need this (could just return true)
+            // But the null address can't provide funds
+            return provider != address(0);
+        }
+    }
+
+    /**
+     * @notice Getter for specific permissions
+     * @dev value of the enum is just the 0-based index in the enumeration
+     *      For instance canPauseSwapping is 0; canChangeWeights is 2
+     * @return token boolean true if we have the given permission
+    */
+    function hasPermission(RightsManager.Permissions permission)
+        external
+        view
+        virtual
+        returns(bool)
+    {
+        return RightsManager.hasPermission(_rights, permission);
+    }
+
+    /**
+     * @notice Get the denormalized weight of a token
+     * @dev viewlock to prevent calling if it's being updated
+     * @return token weight
+     */
+    function getDenormalizedWeight(address token)
+        external
+        view
+        viewlock
+        needsBPool
+        returns (uint)
+    {
+        return bPool.getDenormalizedWeight(token);
+    }
+
+    /**
+     * @notice Getter for the RightsManager contract
+     * @dev Convenience function to get the address of the RightsManager library (so clients can check version)
+     * @return address of the RightsManager library
+    */
+    function getRightsManagerVersion() external pure returns (address) {
+        return address(RightsManager);
+    }
+
+    /**
+     * @notice Getter for the BalancerSafeMath contract
+     * @dev Convenience function to get the address of the BalancerSafeMath library (so clients can check version)
+     * @return address of the BalancerSafeMath library
+    */
+    function getBalancerSafeMathVersion() external pure returns (address) {
+        return address(BalancerSafeMath);
+    }
+
+    /**
+     * @notice Getter for the SmartPoolManager contract
+     * @dev Convenience function to get the address of the SmartPoolManager library (so clients can check version)
+     * @return address of the SmartPoolManager library
+    */
+    function getSmartPoolManagerVersion() external pure returns (address) {
+        return address(SmartPoolManager);
+    }
+
     // Public functions
 
+    // "Public" versions that can safely be called from SmartPoolManager
+    // Allows only the contract itself to call them (not the controller or any external account)
+
+    // withinCap is overkill here (will get called twice in normal operation)
+    // Just defensive in case it somehow gets called from somewhere else
+    function mintPoolShareFromLib(uint amount) public withinCap {
+        require (msg.sender == address(this), "ERR_NOT_CONTROLLER");
+
+        _mint(amount);
+    }
+
+    function pushPoolShareFromLib(address to, uint amount) public {
+        require (msg.sender == address(this), "ERR_NOT_CONTROLLER");
+
+        _push(to, amount);
+    }
+
+    function pullPoolShareFromLib(address from, uint amount) public  {
+        require (msg.sender == address(this), "ERR_NOT_CONTROLLER");
+
+        _pull(from, amount);
+    }
+
+    function burnPoolShareFromLib(uint amount) public  {
+        require (msg.sender == address(this), "ERR_NOT_CONTROLLER");
+
+        _burn(amount);
+    }
+
     // Internal functions
+
+    // Lint wants the function to have a leading underscore too
+    /* solhint-disable private-vars-leading-underscore */
 
     // Accessor to allow subclasses to check the start block
     function getStartBlock() internal view returns (uint) {
         return _startBlock;
     }
+
+    /* solhint-enable private-vars-leading-underscore */
 
     // Rebind BPool and pull tokens from address
     // bPool is a contract interface; function calls on it are external
@@ -989,7 +1103,9 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
 
     // Wrappers around corresponding core functions
 
-    function _mintPoolShare(uint amount) internal {
+    // withinCap is overkill here (will get called twice in normal operation)
+    // Just defensive in case it somehow gets called from somewhere else
+    function _mintPoolShare(uint amount) internal withinCap {
         _mint(amount);
     }
 
@@ -1002,33 +1118,6 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
     }
 
     function _burnPoolShare(uint amount) internal  {
-        _burn(amount);
-    }
-
-    // "Public" versions that can safely be called from SmartPoolManager
-    // Allows only the contract itself to call them (not the controller or any external account)
-
-    function mintPoolShareFromLib(uint amount) public {
-        require (msg.sender == address(this), "ERR_NOT_CONTROLLER");
-
-        _mint(amount);
-    }
-
-    function pushPoolShareFromLib(address to, uint amount) public {
-        require (msg.sender == address(this), "ERR_NOT_CONTROLLER");
-
-        _push(to, amount);
-    }
-
-    function pullPoolShareFromLib(address from, uint amount) public  {
-        require (msg.sender == address(this), "ERR_NOT_CONTROLLER");
-
-        _pull(from, amount);
-    }
-
-    function burnPoolShareFromLib(uint amount) public  {
-        require (msg.sender == address(this), "ERR_NOT_CONTROLLER");
-
         _burn(amount);
     }
 }

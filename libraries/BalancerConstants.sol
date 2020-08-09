@@ -28,4 +28,5 @@ library BalancerConstants {
     uint public constant MIN_ASSET_LIMIT = 2;
     uint public constant MIN_WEIGHT_CHANGE_BLOCK_PERIOD = 10;
     uint public constant MIN_TOKEN_TIME_LOCK_PERIOD = 10;
+    uint public constant MAX_UINT = uint(-1);
 }

@@ -31,6 +31,7 @@ contract('crpPoolSwapIns', async (accounts) => {
         canChangeWeights: true,
         canAddRemoveTokens: true,
         canWhitelistLPs: false,
+        canChangeCap: false,
     };
 
     let crpFactory;
