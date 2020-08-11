@@ -126,7 +126,7 @@ contract('Bankless Simulation (mid-stream adjustment)', async (accounts) => {
             blockRange = 50;
             // get current block number
             const block = await web3.eth.getBlock('latest');
-            console.log("Block of updateWeightsGradually() call: " + block.number)
+            console.log(`Block of updateWeightsGradually() call: ${block.number}`);
             startBlock = block.number + 10;
             const endBlock = startBlock + blockRange;
             const endWeights = [toWei('34'), toWei('6')];
@@ -170,9 +170,9 @@ contract('Bankless Simulation (mid-stream adjustment)', async (accounts) => {
                 weightDai = await crpPool.getDenormalizedWeight(DAI);
                 block = await web3.eth.getBlock("latest");
                 console.log('\nBlock: ' + block.number + '. Weights -> BAP0: ' +
-                    (weightBap0*2.5/10**18).toString() + '%\tDAI: ' +
-                    (weightDai*2.5/10**18).toString() + '%');
-                console.log(`Raw weights: ${fromWei(weightBap0)} / ${fromWei(weightDai)}`);
+                    (weightBap0*2.5/10**18).toFixed(4) + '%\tDAI: ' +
+                    (weightDai*2.5/10**18).toFixed(2) + '%');
+                console.log(`Raw weights: ${Decimal(fromWei(weightBap0)).toFixed(4)} / ${Decimal(fromWei(weightDai)).toFixed(2)}`);
 
                 const tokenInBalance = await dai.balanceOf.call(underlyingPool.address);
                 const tokenInWeight = await underlyingPool.getDenormalizedWeight(DAI);
@@ -181,8 +181,8 @@ contract('Bankless Simulation (mid-stream adjustment)', async (accounts) => {
                 
                 const daiBalance = await dai.balanceOf.call(user);
                 const bap0Balance = await bap0.balanceOf.call(user);
-                console.log(`User has ${Math.round(fromWei(daiBalance))} Dai and ${fromWei(bap0Balance)} shirts.`);
-                console.log(`Pool has ${fromWei(tokenOutBalance)} shirts / ${Math.round(fromWei(tokenInBalance))} Dai left`);
+                console.log(`User has ${Decimal(fromWei(daiBalance)).toFixed(2)} Dai and ${Decimal(fromWei(bap0Balance)).toFixed(1)} shirts.`);
+                console.log(`Pool has ${Decimal(fromWei(tokenOutBalance)).toFixed(1)} shirts / ${Decimal(fromWei(tokenInBalance)).toFixed(2)} Dai left`);
 
                 // Buy 1-3 shirts at a time - get "ahead" of the curve
                 let amountOut = (Math.floor(Math.random() * 3) + 1).toString();
@@ -209,7 +209,7 @@ contract('Bankless Simulation (mid-stream adjustment)', async (accounts) => {
 
                 tokenAmountIn = swapResult[0];
 
-                console.log(`Cost: ${fromWei(tokenAmountIn)}`);
+                console.log(`Cost: ${Decimal(fromWei(tokenAmountIn)).toFixed(2)}`);
 
                 const relDiff = calcRelativeDiff(expectedTotalIn, fromWei(tokenAmountIn));
                 assert.isAtMost(relDiff.toNumber(), errorDelta);
@@ -236,7 +236,7 @@ contract('Bankless Simulation (mid-stream adjustment)', async (accounts) => {
             newDaiWeight = Decimal(fromWei(weightDai)).plus(10);
 
             const startBlock = await web3.eth.getBlock('latest');
-            console.log("Block of updateWeightsGradually() call: " + startBlock.number)
+            console.log(`Block of updateWeightsGradually() call: ${startBlock.number}`);
             const endBlock = startBlock.number + 10; // 10 is the minimum
             const adjustmentEndWeights = [toWei(newDaiWeight.toString()), toWei(newBap0Weight.toString())];
             console.log(`Start block for fast adjustment: ${startBlock.number}`);
@@ -264,10 +264,10 @@ contract('Bankless Simulation (mid-stream adjustment)', async (accounts) => {
 
                 weightBap0 = await crpPool.getDenormalizedWeight(BAP0);
                 weightDai = await crpPool.getDenormalizedWeight(DAI);
-                console.log(`Raw weights: ${fromWei(weightBap0)} / ${fromWei(weightDai)}`);
+                console.log(`Raw weights: ${Decimal(fromWei(weightBap0)).toFixed(4)} / ${Decimal(fromWei(weightDai)).toFixed(4)}`);
 
                 let weightDiff = Decimal(fromWei(weightBap0)).minus(lastBap0Weight);
-                console.log(`Weight diff: ${weightDiff}`);
+                console.log(`Weight diff: ${weightDiff.toFixed(4)}`);
 
                 if (weightDiff == 0) {
                     adjusting = false;
@@ -290,7 +290,7 @@ contract('Bankless Simulation (mid-stream adjustment)', async (accounts) => {
             blockRange = 50;
             // get current block number
             const startBlock = await web3.eth.getBlock('latest');
-            console.log("Block of resumption updateWeightsGradually() call: " + startBlock.number)
+            console.log(`Block of resumption updateWeightsGradually() call: ${startBlock.number}`);
             const endBlock = startBlock.number + blockRange;
             const endWeights = [toWei('39'), toWei('1')];
 
@@ -312,9 +312,9 @@ contract('Bankless Simulation (mid-stream adjustment)', async (accounts) => {
                 weightDai = await crpPool.getDenormalizedWeight(DAI);
                 block = await web3.eth.getBlock("latest");
                 console.log('\nBlock: ' + block.number + '. Weights -> BAP0: ' +
-                    (weightBap0*2.5/10**18).toString() + '%\tDAI: ' +
-                    (weightDai*2.5/10**18).toString() + '%');
-                console.log(`Raw weights: ${fromWei(weightBap0)} / ${fromWei(weightDai)}`);
+                    (weightBap0*2.5/10**18).toFixed(4) + '%\tDAI: ' +
+                    (weightDai*2.5/10**18).toFixed(2) + '%');
+                console.log(`Raw weights: ${Decimal(fromWei(weightBap0)).toFixed(4)} / ${Decimal(fromWei(weightDai)).toFixed(4)}`);
 
                 const tokenInBalance = await dai.balanceOf.call(underlyingPool.address);
                 const tokenInWeight = await underlyingPool.getDenormalizedWeight(DAI);
@@ -323,8 +323,8 @@ contract('Bankless Simulation (mid-stream adjustment)', async (accounts) => {
                 
                 const daiBalance = await dai.balanceOf.call(user);
                 const bap0Balance = await bap0.balanceOf.call(user);
-                console.log(`User has ${Math.round(fromWei(daiBalance))} Dai and ${fromWei(bap0Balance)} shirts.`);
-                console.log(`Pool has ${fromWei(tokenOutBalance)} shirts / ${Math.round(fromWei(tokenInBalance))} Dai left`);
+                console.log(`User has ${Decimal(fromWei(daiBalance)).toFixed(2)} Dai and ${Decimal(fromWei(bap0Balance)).toFixed(1)} shirts.`);
+                console.log(`Pool has ${Decimal(fromWei(tokenOutBalance)).toFixed(1)} shirts / ${Decimal(fromWei(tokenInBalance)).toFixed(2)} Dai left`);
 
                 let amountOut = '1';
 
@@ -350,7 +350,7 @@ contract('Bankless Simulation (mid-stream adjustment)', async (accounts) => {
 
                 tokenAmountIn = swapResult[0];
 
-                console.log(`Cost: ${fromWei(tokenAmountIn)}`);
+                console.log(`Cost: ${Decimal(fromWei(tokenAmountIn)).toFixed(2)}`);
 
                 const relDiff = calcRelativeDiff(expectedTotalIn, fromWei(tokenAmountIn));
                 assert.isAtMost(relDiff.toNumber(), errorDelta);

@@ -169,16 +169,22 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
         public
         PCToken(tokenSymbolString)
     {
-        require(tokens.length >= BalancerConstants.MIN_ASSET_LIMIT, "ERR_TOO_FEW_TOKENS");
+        // We don't have a pool yet; check now or it will fail later (in order of likelihood to fail)
+        // (and be unrecoverable if they don't have permission set to change it)
+        // Most likely to fail, so check first
+        require(swapFee >= BalancerConstants.MIN_FEE, "ERR_INVALID_SWAP_FEE");
+        require(swapFee <= BalancerConstants.MAX_FEE, "ERR_INVALID_SWAP_FEE");
 
         // Arrays must be parallel
         require(startBalances.length == tokens.length, "ERR_START_BALANCES_MISMATCH");
         require(startWeights.length == tokens.length, "ERR_START_WEIGHTS_MISMATCH");
+        // Cannot have too many or too few - technically redundant, since BPool.bind() would fail later
+        // But if we don't check now, we could have a useless contract with no way to create a pool
 
-        // We don't have a pool yet; check now or it will fail later
-        // (and be unrecoverable if they don't have permission set to change it)
-        require(swapFee >= BalancerConstants.MIN_FEE, "ERR_INVALID_SWAP_FEE");
-        require(swapFee <= BalancerConstants.MAX_FEE, "ERR_INVALID_SWAP_FEE");
+        require(tokens.length >= BalancerConstants.MIN_ASSET_LIMIT, "ERR_TOO_FEW_TOKENS");
+        require(tokens.length <= BalancerConstants.MAX_ASSET_LIMIT, "ERR_TOO_MANY_TOKENS");
+        // There are further possible checks (e.g., if they use the same token twice), but
+        // we can let bind() catch things like that (i.e., not things that might reasonably work)
 
         bFactory = IBFactory(factoryAddress);
         _tokens = tokens;
@@ -460,7 +466,7 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
         // CRP pool tokens are issued on create.
         //
         // We really don't need a "CRP level" finalize. It is considered "finalized" on creation.
-        // The underlying pool is never finalized. So it is sufficient just to check that the pool exists,
+        // Since the underlying pool is never finalized, it is sufficient just to check that the pool exists,
         // and you can join it.
         bPool.setPublicSwap(true);
 
@@ -561,19 +567,21 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
     {
         require(_rights.canChangeWeights, "ERR_NOT_CONFIGURABLE_WEIGHTS");
 
-        // Delegate to library to save space
-        SmartPoolManager.pokeWeights(
-            bPool,
-            _startBlock,
-            _endBlock,
-            _startWeights,
-            _newWeights
-        );
-
+        // Don't modify state after external call (re-entrancy protection)
+        uint currentStartBlock = _startBlock;
         // Reset to allow add/remove tokens, or manual weight updates
         if (block.number >= _endBlock) {
             _startBlock = 0;
         }
+
+        // Delegate to library to save space
+        SmartPoolManager.pokeWeights(
+            bPool,
+            currentStartBlock,
+            _endBlock,
+            _startWeights,
+            _newWeights
+        );
     }
 
     /**

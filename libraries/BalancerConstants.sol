@@ -25,7 +25,9 @@ library BalancerConstants {
     uint public constant EXIT_FEE = 0;
     uint public constant MAX_IN_RATIO = BONE / 2;
     uint public constant MAX_OUT_RATIO = (BONE / 3) + 1 wei;
+    // Must match BConst.MIN_BOUND_TOKENS and BConst.MAX_BOUND_TOKENS
     uint public constant MIN_ASSET_LIMIT = 2;
+    uint public constant MAX_ASSET_LIMIT = 8;
     uint public constant MIN_WEIGHT_CHANGE_BLOCK_PERIOD = 10;
     uint public constant MIN_TOKEN_TIME_LOCK_PERIOD = 10;
     uint public constant MAX_UINT = uint(-1);

@@ -65,13 +65,6 @@ contract('crpPoolSwapIns', async (accounts) => {
     let adminBPTBalance;
 
     before(async () => {
-        /*
-        Uses deployed BFactory & CRPFactory.
-        Deploys new test tokens - XYZ, WETH, DAI, ABC, ASD
-        Mints test tokens for Admin user (account[0])
-        CRPFactory creates new CRP.
-        Admin approves CRP for MAX
-        */
         bFactory = await BFactory.deployed();
         crpFactory = await CRPFactory.deployed();
         xyz = await TToken.new('XYZ', 'XYZ', 18);

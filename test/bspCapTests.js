@@ -179,7 +179,6 @@ contract('BSP Cap', async (accounts) => {
 
             let userIdx = 0;
             let user;
-            let i;
             let supply;
             let balance;
             let expectedSupply = 100;
@@ -201,7 +200,7 @@ contract('BSP Cap', async (accounts) => {
                 }
 
                 const daiCost = await crpPool.joinswapPoolAmountOut.call(DAI, toWei(amountOut.toString()), MAX, {from: user});
-                console.log(`User ${userIdx+1} bought ${amountOut} shares for ${fromWei(daiCost)} DAI`);
+                console.log(`User ${userIdx+1} bought ${amountOut} shares for ${Decimal(fromWei(daiCost)).toFixed(2)} DAI`);
                 userBalances[userIdx] += amountOut;
                 expectedSupply += amountOut;
 

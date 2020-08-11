@@ -12,6 +12,7 @@ contract('CRPFactory', async (accounts) => {
     const { toWei } = web3.utils;
 
     const MAX = web3.utils.toTwosComplement(-1);
+    const swapFee = 10**15;
 
     let crpFactory;
     let bFactory;
@@ -75,7 +76,7 @@ contract('CRPFactory', async (accounts) => {
             [XYZ, WETH, DAI],
             startBalances,
             startWeights,
-            10 ** 15, // swapFee
+            swapFee,
             permissions,
         );
 
@@ -85,7 +86,7 @@ contract('CRPFactory', async (accounts) => {
             [XYZ, WETH, DAI],
             startBalances,
             startWeights,
-            10 ** 15, // swapFee
+            swapFee,
             longPermissions, // tolerates extra data at end (calldata still the same size)
         );
 
@@ -122,7 +123,7 @@ contract('CRPFactory', async (accounts) => {
                 [XYZ, WETH, DAI],
                 startBalances,
                 badStartWeights,
-                10 ** 15,
+                swapFee,
                 permissions,
             ),
             'ERR_START_WEIGHTS_MISMATCH'
@@ -139,7 +140,7 @@ contract('CRPFactory', async (accounts) => {
                 [XYZ, WETH, DAI],
                 badStartBalances,
                 startWeights,
-                10 ** 15,
+                swapFee,
                 permissions,
             ),
             'ERR_START_BALANCES_MISMATCH'
@@ -153,7 +154,7 @@ contract('CRPFactory', async (accounts) => {
             [XYZ, WETH, DAI],
             startBalances,
             startWeights,
-            10 ** 15,
+            swapFee,
             permissions,
         );
     });
@@ -189,6 +190,42 @@ contract('CRPFactory', async (accounts) => {
                 permissions,
             ),
             'ERR_INVALID_SWAP_FEE'
+        );
+    });
+
+    it('should not be able to create with a single token', async () => {
+        // Max is 10**18 / 10
+        // Have to pass it as a string for some reason...
+        await truffleAssert.reverts(
+            crpFactory.newCrp(
+                bFactory.address,
+                SYMBOL,
+                [DAI],
+                [toWei('1000')],
+                [toWei('20')],
+                swapFee,
+                permissions,
+            ),
+            'ERR_TOO_FEW_TOKENS'
+        );
+    });
+
+    it('should not be able to create with more than the max tokens', async () => {
+        // Max is 10**18 / 10
+        // Have to pass it as a string for some reason...
+        await truffleAssert.reverts(
+            crpFactory.newCrp(
+                bFactory.address,
+                SYMBOL,
+                [DAI, DAI, DAI, DAI, DAI, DAI, DAI, DAI, DAI],
+                [toWei('1000'), toWei('1000'), toWei('1000'), toWei('1000'),
+                 toWei('1000'), toWei('1000'), toWei('1000'), toWei('1000'), toWei('1000')],
+                 [toWei('20'), toWei('20'), toWei('20'), toWei('20'),
+                  toWei('20'), toWei('20'), toWei('20'), toWei('20'), toWei('20')],
+                swapFee,
+                permissions,
+            ),
+            'ERR_TOO_MANY_TOKENS'
         );
     });
 });

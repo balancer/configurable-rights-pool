@@ -57,7 +57,6 @@ contract('configurableWeightsUMA', async (accounts) => {
             await xyz.mint(admin, toWei('100000000'));
             await abc.mint(admin, toWei('100000000'));
 
-            // Copied this model of code from https://github.com/balancer-labs/balancer-core/blob/5d70da92b1bebaa515254d00a9e064ecac9bd18e/test/math_with_fees.js#L93
             CONTROLLER = await factory.newCrp.call(
                 bfactory.address,
                 SYMBOL,
@@ -82,8 +81,6 @@ contract('configurableWeightsUMA', async (accounts) => {
 
             const CONTROLLER_ADDRESS = controller.address;
 
-            // console.log(CONTROLLER_ADDRESS);
-
             await weth.approve(CONTROLLER_ADDRESS, MAX);
             await dai.approve(CONTROLLER_ADDRESS, MAX);
             await xyz.approve(CONTROLLER_ADDRESS, MAX);
@@ -96,7 +93,7 @@ contract('configurableWeightsUMA', async (accounts) => {
                 blockRange = 20;
                 // get current block number
                 const block = await web3.eth.getBlock('latest');
-                console.log("Block of updateWeightsGradually() call: "+block.number)
+                console.log(`Block of updateWeightsGradually() call: ${block.number}`);
                 startBlock = block.number + 10;
                 const endBlock = startBlock + blockRange;
                 const endWeights = [toWei('39'), toWei('1')];
@@ -154,8 +151,8 @@ contract('configurableWeightsUMA', async (accounts) => {
                     weightWETH = await controller.getDenormalizedWeight(WETH);
                     block = await web3.eth.getBlock("latest");
                     console.log('Block: ' + block.number + '. Weights -> July: ' +
-                        (weightXYZ*2.5/10**18).toString() + '%\tJune: ' +
-                        (weightWETH*2.5/10**18).toString() + '%');
+                        (weightXYZ*2.5/10**18).toFixed(4) + '%\tJune: ' +
+                        (weightWETH*2.5/10**18).toFixed(4) + '%');
                     await controller.pokeWeights();
                 }
             });
@@ -164,7 +161,6 @@ contract('configurableWeightsUMA', async (accounts) => {
                 blockRange = 50;
                 // get current block number
                 const block = await web3.eth.getBlock('latest');
-                // console.log("Block of updateWeightsGradually() call: "+block.number)
                 startBlock = block.number + 10;
                 const endBlock = startBlock + blockRange;
                 const endWeights = [toWei('1'), toWei('39')];
@@ -176,7 +172,7 @@ contract('configurableWeightsUMA', async (accounts) => {
 
             it('Should revert because too early to pokeWeights()', async () => {
                 block = await web3.eth.getBlock("latest");
-                console.log("Block: "+block.number);
+                console.log(`Block: ${block.number}`);
                 await truffleAssert.reverts(
                     controller.pokeWeights(),
                     'ERR_CANT_POKE_YET',
@@ -201,8 +197,8 @@ contract('configurableWeightsUMA', async (accounts) => {
                     const weightWETH = await controller.getDenormalizedWeight(WETH);
                     const block = await web3.eth.getBlock('latest');
                     console.log('Block: ' + block.number + '. Weights -> July: ' +
-                        (weightXYZ*2.5/10**18).toString() + '%\tAugust: ' + 
-                        (weightWETH*2.5/10**18).toString() + '%');
+                        (weightXYZ*2.5/10**18).toFixed(4) + '%\tAugust: ' + 
+                        (weightWETH*2.5/10**18).toFixed(4) + '%');
                     await controller.pokeWeights();
 
                     // Try to adust weights with mismatched tokens
@@ -222,7 +218,7 @@ contract('configurableWeightsUMA', async (accounts) => {
         it('Controller should not be able to call updateWeightsGradually() with range in the past', async () => {
             // get current block number
             const block = await web3.eth.getBlock('latest');
-            console.log("Block of updateWeightsGradually() call: "+block.number)
+            console.log(`Block of updateWeightsGradually() call: ${block.number}`);
             const startBlock = block.number - 20;
             const endBlock = startBlock + 10;
             // Here we are trying to updateWeightsGradually in the past: from 10-20 when we're on block 30

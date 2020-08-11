@@ -12,6 +12,8 @@ contract('configurableWeights_withTx', async (accounts) => {
     const user1 = accounts[1];
     const user2 = accounts[2];
 
+    const swapFee = 10**15;
+
     const { toWei } = web3.utils;
 
     const MAX = web3.utils.toTwosComplement(-1);
@@ -72,7 +74,7 @@ contract('configurableWeights_withTx', async (accounts) => {
                 [XYZ, WETH],
                 startBalances,
                 startWeights,
-                10 ** 15, // swapFee
+                swapFee,
                 permissions,
             );
 
@@ -82,15 +84,13 @@ contract('configurableWeights_withTx', async (accounts) => {
                 [XYZ, WETH],
                 startBalances,
                 startWeights,
-                10 ** 15, // swapFee
+                swapFee,
                 permissions,
             );
 
             controller = await ConfigurableRightsPool.at(CONTROLLER);
 
             const CONTROLLER_ADDRESS = controller.address;
-
-            // console.log(CONTROLLER_ADDRESS);
 
             await weth.approve(CONTROLLER_ADDRESS, MAX);
             await dai.approve(CONTROLLER_ADDRESS, MAX);
@@ -104,7 +104,6 @@ contract('configurableWeights_withTx', async (accounts) => {
                 blockRange = 20;
                 // get current block number
                 const block = await web3.eth.getBlock('latest');
-                // console.log("Block of updateWeightsGradually() call: "+block.number)
                 const startBlock = block.number + 3;
                 const endBlock = startBlock + blockRange;
                 const endWeights = [toWei('39'), toWei('1')];
@@ -162,8 +161,8 @@ contract('configurableWeights_withTx', async (accounts) => {
                     weightWETH = await controller.getDenormalizedWeight(WETH);
                     block = await web3.eth.getBlock('latest');
                     console.log('Block: ' + block.number + '. Weights -> July: ' +
-                        (weightXYZ*2.5/10**18).toString() + '%\tJune: ' +
-                        (weightWETH*2.5/10**18).toString() + '%');
+                        (weightXYZ*2.5/10**18).toFixed(4) + '%\tJune: ' +
+                        (weightWETH*2.5/10**18).toFixed(4) + '%');
                     await controller.pokeWeights();
 
                     // Balances should not change

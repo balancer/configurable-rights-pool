@@ -14,14 +14,18 @@ contract('configurableSwapFee', async (accounts) => {
 
     const MAX = web3.utils.toTwosComplement(-1);
 
-    let crpFactory; let
-        bFactory;
+    let crpFactory;
+    let bFactory;
     let crpPool;
     let CRPPOOL;
-    let WETH; let DAI; let XYZ; let
-        ABC;
-    let weth; let dai; let abc; let
-        xyz;
+    let WETH;
+    let DAI;
+    let XYZ;
+    let ABC;
+    let weth;
+    let dai;
+    let abc;
+    let xyz;
 
     // These are the intial settings for newCrp:
     const swapFee = 10 ** 15;
@@ -40,14 +44,6 @@ contract('configurableSwapFee', async (accounts) => {
     };
 
     before(async () => {
-        /*
-        Uses deployed BFactory & CRPFactory.
-        Deploys new test tokens - XYZ, WETH, DAI, ABC, ASD
-        Mints test tokens for Admin user (account[0])
-        CRPFactory creates new CRP.
-        Admin approves CRP for MAX
-        newCrp call with configurableSwapFee set to true
-        */
         bFactory = await BFactory.deployed();
         crpFactory = await CRPFactory.deployed();
         xyz = await TToken.new('XYZ', 'XYZ', 18);

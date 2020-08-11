@@ -12,6 +12,7 @@ contract('ESPFactory', async (accounts) => {
     const { toWei } = web3.utils;
 
     const MAX = web3.utils.toTwosComplement(-1);
+    const swapFee = 10**15;
 
     let espFactory;
     let bFactory;
@@ -59,7 +60,7 @@ contract('ESPFactory', async (accounts) => {
             [USDC, DAI],
             startBalances,
             startWeights,
-            10 ** 15, // swapFee
+            swapFee,
             permissions,
         );
 
@@ -69,7 +70,7 @@ contract('ESPFactory', async (accounts) => {
             [USDC, DAI],
             startBalances,
             startWeights,
-            10 ** 15, // swapFee
+            swapFee,
             permissions,
         );
 
@@ -98,7 +99,6 @@ contract('ESPFactory', async (accounts) => {
     it('should be able to create with mismatched start Weights', async () => {
         const badStartWeights = [toWei('12'), toWei('1.5'), toWei('24')];
 
-        
         await truffleAssert.reverts(
             espFactory.newEsp(
                 bFactory.address,
@@ -158,8 +158,6 @@ contract('ESPFactory', async (accounts) => {
     });
 
     it('should not be able to create with a fee above the MAX', async () => {
-        // Max is 10**18 / 10
-        // Have to pass it as a string for some reason...
         const invalidSwapFee = '200000000000000000';
 
         await truffleAssert.reverts(

@@ -51,13 +51,6 @@ contract('crpPoolTests', async (accounts) => {
     let xxx;
 
     before(async () => {
-        /*
-        Uses deployed BFactory & CRPFactory.
-        Deploys new test tokens - XYZ, WETH, DAI, ABC, ASD
-        Mints test tokens for Admin user (account[0])
-        CRPFactory creates new CRP.
-        Admin approves CRP for MAX
-        */
         bFactory = await BFactory.deployed();
         crpFactory = await CRPFactory.deployed();
         xyz = await TToken.new('XYZ', 'XYZ', 18);
@@ -115,8 +108,6 @@ contract('crpPoolTests', async (accounts) => {
     });
 
     it('crpPool should have all rights set to true', async () => {
-        // const currentRights = await crpPool.getCurrentRights();
-        // assert.sameMembers(currentRights, [true, true, true, true]);
         let x;
         for (x = 0; x < permissions.length; x++) {
             const perm = await crpPool.hasPermission(x);
@@ -200,6 +191,20 @@ contract('crpPoolTests', async (accounts) => {
         assert.equal(adminBPTBalance, toWei('100'));
     });
 
+    it('Should not allow joining with partial token list', async () => {
+        await truffleAssert.reverts(
+            crpPool.joinPool(toWei('1'), [MAX, MAX]),
+            'ERR_AMOUNTS_MISMATCH',
+        );
+    });
+
+    it('Should not allow joining with zero out', async () => {
+        await truffleAssert.reverts(
+            crpPool.joinPool(toWei('0'), [MAX, MAX, MAX]),
+            'ERR_MATH_APPROX',
+        );
+    });
+
     it('JoinPool should not revert if smart pool is finalized', async () => {
         const bPoolAddr = await crpPool.bPool();
         let currentPoolBalance = await crpPool.balanceOf.call(admin);
@@ -211,10 +216,6 @@ contract('crpPoolTests', async (accounts) => {
         previousbPoolXyzBalance = Decimal(fromWei(previousbPoolXyzBalance));
         previousbPoolWethBalance = Decimal(fromWei(previousbPoolWethBalance));
         previousbPoolDaiBalance = Decimal(fromWei(previousbPoolDaiBalance));
-
-        // Removed this function - smart pools are "finalized" at the CRP level on create
-        // They are never finalized at the core level, or we wouldn't be able to do anything
-        // await crpPool.finalizeSmartPool();
 
         const poolAmountOut = '1';
         await crpPool.joinPool(toWei(poolAmountOut), [MAX, MAX, MAX]);
@@ -329,6 +330,19 @@ contract('crpPoolTests', async (accounts) => {
         assert.isAtMost(relDif.toNumber(), errorDelta);
     });
 
+    it('should not allow exiting with an amount mismatch', async () => {
+        await truffleAssert.reverts(
+            crpPool.exitPool(toWei('1'), [toWei('2.5')]),
+            'ERR_AMOUNTS_MISMATCH',
+        );
+    });
+
+    it('should not allow exiting with zero amount in', async () => {
+        await truffleAssert.reverts(
+            crpPool.exitPool(toWei('0'), [toWei('0'), toWei('0'), toWei('0')]),
+            'ERR_MATH_APPROX',
+        );
+    });
 
     it('should exitpool', async () => {
         const bPoolAddr = await crpPool.bPool();
@@ -368,6 +382,14 @@ contract('crpPoolTests', async (accounts) => {
         relDif = calcRelativeDiff(currentWethBalance, fromWei(bPoolWethBalance));
         assert.isAtMost(relDif.toNumber(), errorDelta);
         assert.equal(fromWei(poolBalance), currentPoolBalance);
+    });
+
+    it('should not allow exitpool without enough tokens', async () => {
+        // Testing the new error message (would have been ERR_INSUFFICIENT_BAL)
+        await truffleAssert.reverts(
+           crpPool.exitPool(toWei('50'), [toWei('0'), toWei('0'), toWei('0')]),
+           'ERR_SUB_UNDERFLOW',
+        );
     });
 
     describe('PCToken interactions', () => {
@@ -410,6 +432,12 @@ contract('crpPoolTests', async (accounts) => {
             await crpPool.approve(user2, toWei('10'));
             await crpPool.transferFrom(admin, user2, toWei('1'), { from: user2 });
             await crpPool.transfer(admin, toWei('0.5'), { from: user2 });
+
+            // Test error message (fall through to math; catch underflow)
+            await truffleAssert.reverts(
+                crpPool.transfer(admin, toWei('10000'), { from: user2 }),
+                'ERR_SUB_UNDERFLOW',
+            );
         });
     });
 });

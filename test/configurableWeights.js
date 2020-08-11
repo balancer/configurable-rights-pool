@@ -8,6 +8,7 @@ const TToken = artifacts.require('TToken');
 const truffleAssert = require('truffle-assertions');
 const { time } = require('@openzeppelin/test-helpers');
 const { calcRelativeDiff } = require('../lib/calc_comparisons');
+const Decimal = require('decimal.js');
 
 // Helper function to calculate new weights.
 function newWeight(block, startBlock, endBlock, startWeight, endWeight) {
@@ -35,14 +36,18 @@ contract('configurableWeights', async (accounts) => {
     const errorDelta = 10 ** -8;
     const MAX = web3.utils.toTwosComplement(-1);
 
-    let crpFactory; let
-        bFactory;
+    let crpFactory;
+    let bFactory;
     let crpPool;
     let CRPPOOL;
-    let WETH; let DAI; let XYZ; let
-        ABC;
-    let weth; let dai; let xyz; let
-        abc;
+    let WETH;
+    let DAI;
+    let XYZ;
+    let ABC;
+    let weth;
+    let dai;
+    let xyz;
+    let abc;
 
     // These are the intial settings for newCrp:
     const swapFee = 10 ** 15;
@@ -62,8 +67,8 @@ contract('configurableWeights', async (accounts) => {
         canChangeCap: false,
     };
 
-    let validEndBlock; let
-        validStartBlock;
+    let validEndBlock;
+    let validStartBlock;
     const updatedWethWeight = '3';
     let endXyzWeight = '3';
     let endWethWeight = '6';
@@ -71,14 +76,6 @@ contract('configurableWeights', async (accounts) => {
 
     describe('Weights permissions, etc', () => {
         before(async () => {
-            /*
-            Uses deployed BFactory & CRPFactory.
-            Deploys new test tokens - XYZ, WETH, DAI, ABC, ASD
-            Mints test tokens for Admin user (account[0])
-            CRPFactory creates new CRP.
-            Admin approves CRP for MAX
-            newCrp call with configurableWeights set to true
-            */
             bFactory = await BFactory.deployed();
             crpFactory = await CRPFactory.deployed();
             xyz = await TToken.new('XYZ', 'XYZ', 18);
@@ -232,9 +229,8 @@ contract('configurableWeights', async (accounts) => {
             assert.equal(fromWei(xdStartSpotPrice), fromWei(xdUpdatedSpotPrice));
         });
 
-        it('Controller should not be able to change weights'
-         + 'when they dont have enough tokens', async () => {
-            // This should tripple WETH weight from 1.5 to 4.5, requiring 80 WETH, but admin only has 60.
+        it('Controller should not be able to change weights when they do not have enough tokens', async () => {
+            // This should triple WETH weight from 1.5 to 4.5, requiring 80 WETH, but admin only has 60.
             await truffleAssert.reverts(
                 crpPool.updateWeight(WETH, toWei('4.5')),
                 'ERR_INSUFFICIENT_BAL',
@@ -242,7 +238,7 @@ contract('configurableWeights', async (accounts) => {
         });
 
         it('Should not be able to update weight for non-token', async () => {
-            // This should tripple WETH weight from 1.5 to 4.5, requiring 80 WETH, but admin only has 60.
+            // This should triple WETH weight from 1.5 to 4.5, requiring 80 WETH, but admin only has 60.
             await truffleAssert.reverts(
                 crpPool.updateWeight(ABC, toWei('4.5')),
                 'ERR_NOT_BOUND',
@@ -252,14 +248,6 @@ contract('configurableWeights', async (accounts) => {
 
     describe('updateWeight', () => {
         beforeEach(async () => {
-            /*
-            Uses deployed BFactory & CRPFactory.
-            Deploys new test tokens - XYZ, WETH, DAI, ABC, ASD
-            Mints test tokens for Admin user (account[0])
-            CRPFactory creates new CRP.
-            Admin approves CRP for MAX
-            newCrp call with configurableWeights set to true
-            */
             bFactory = await BFactory.deployed();
             crpFactory = await CRPFactory.deployed();
             xyz = await TToken.new('XYZ', 'XYZ', 18);
@@ -403,7 +391,8 @@ contract('configurableWeights', async (accounts) => {
             assert.equal(wethWeight, toWei(startingWethWeight));
             assert.equal(daiWeight, toWei(startingDaiWeight));
 
-            await crpPool.updateWeight(WETH, toWei(updatedWethWeight)); // This should double WETH weight from 1.5 to 3.
+            // This should double WETH weight from 1.5 to 3.
+            await crpPool.updateWeight(WETH, toWei(updatedWethWeight));
 
             adminBPTBalance = await crpPool.balanceOf.call(admin);
             adminWethBalance = await weth.balanceOf.call(admin);
@@ -664,7 +653,7 @@ contract('configurableWeights', async (accounts) => {
             let daiWeight = await crpPool.getDenormalizedWeight(DAI);
             block = await web3.eth.getBlock('latest');
             console.log('Poking...');
-            console.log(`${block.number} Weights: ${xyzWeight.toString()} ${wethWeight.toString()} ${daiWeight.toString()}`);
+            console.log(`${block.number} Weights: ${Decimal(fromWei(xyzWeight)).toFixed(4)} ${Decimal(fromWei(wethWeight)).toFixed(4)} ${Decimal(fromWei(daiWeight)).toFixed(4)}`);
 
             // Starting weights
             assert.equal(xyzWeight, toWei(startingXyzWeight));

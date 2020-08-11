@@ -151,7 +151,7 @@ contract('Bankless Simulation', async (accounts) => {
             blockRange = 50;
             // get current block number
             const block = await web3.eth.getBlock('latest');
-            console.log("Block of updateWeightsGradually() call: " + block.number)
+            console.log(`Block of updateWeightsGradually() call: ${block.number}`);
             startBlock = block.number + 10;
             const endBlock = startBlock + blockRange;
             const endWeights = [toWei('34'), toWei('6')];
@@ -225,11 +225,11 @@ contract('Bankless Simulation', async (accounts) => {
                     }
 
                     const bap0SpotPrice = await underlyingPool.getSpotPrice(DAI, BAP0);
-                    console.log(`Price of 1 BAP0 = ${fromWei(bap0SpotPrice)}`);
+                    console.log(`Spot price of 1 BAP0 = ${Decimal(fromWei(bap0SpotPrice)).toFixed(4)}`);
                     let amountOut = '1';
 
                     if (2 == userIdx) {
-                        // Shenanigans - partial shirt purchase
+                        // Shenanigans - partial shirt purchases
                         amountOut = '0.5';
                     }
                     const expectedTotalIn = calcInGivenOut(
@@ -255,7 +255,7 @@ contract('Bankless Simulation', async (accounts) => {
                     tokenAmountIn = swapResult[0];
                     spotPriceAfter = swapResult[1];
 
-                    console.log(`Cost: ${fromWei(tokenAmountIn)}; price after is ${fromWei(spotPriceAfter)}`);
+                    console.log(`Actual cost: ${Decimal(fromWei(tokenAmountIn)).toFixed(2)}; spot price after is ${Decimal(fromWei(spotPriceAfter)).toFixed(2)}`);
 
                     const relDiff = calcRelativeDiff(expectedTotalIn, fromWei(tokenAmountIn));
                     assert.isAtMost(relDiff.toNumber(), errorDelta);
@@ -273,7 +273,7 @@ contract('Bankless Simulation', async (accounts) => {
                 // What if we swap the token back in?
                 if (0 == userIdx) {
                     const daiSpotPrice = await underlyingPool.getSpotPrice(BAP0, DAI);
-                    console.log(`Price of 1 DAI = ${fromWei(daiSpotPrice)}`);
+                    console.log(`Spot price of 1 DAI = ${Decimal(fromWei(daiSpotPrice)).toFixed(2)}`);
 
                     const bapInBalance = await bap0.balanceOf.call(underlyingPool.address);
                     const bapInWeight = await underlyingPool.getDenormalizedWeight(BAP0);
@@ -298,7 +298,7 @@ contract('Bankless Simulation', async (accounts) => {
                         { from: user1 },
                     );
 
-                    console.log(`User put the token back, and got ${fromWei(daiAmountOut[0])} Dai back`);
+                    console.log(`User put the token back, and got ${Decimal(fromWei(daiAmountOut[0])).toFixed(2)} Dai back`);
 
                     relDif = calcRelativeDiff(expectedTotalOut, fromWei(daiAmountOut[0]));
                     assert.isAtMost(relDif.toNumber(), errorDelta);
@@ -329,13 +329,23 @@ contract('Bankless Simulation', async (accounts) => {
             let daiWithdrawal;
             let shirtWithdrawal;
 
-            // set the cap to 0 so that no one can join
+            // set the cap to 0 so that no one can join while we're withdrawing from the pool
             await crpPool.setCap(0);
 
+            await truffleAssert.reverts(
+                /* You might expect this to work - just redeem all the pool tokens and get the shirts/dai back
+                   Nope - there is no "we're done - everybody out of the pool" call
+                   It's designed for people to enter and leave continuously, so prices need to be
+                   well-defined at all times, so ratios need to be maintained, etc. 
+                   You can only withdraw 1/3 at a time - but you can do so iteratively */
+                crpPool.exitPool.call(toWei(numPoolTokens), [toWei(initialDaiDeposit), toWei('1.99')]),
+                'ERR_MIN_BALANCE',
+            );                
+
             poolDaiBalance = await dai.balanceOf.call(underlyingPool.address);
-            console.log(`Final pool Dai balance: ${fromWei(poolDaiBalance)}`);
+            console.log(`Final pool Dai balance: ${Decimal(fromWei(poolDaiBalance)).toFixed(2)}`);
             poolShirtBalance = await bap0.balanceOf.call(underlyingPool.address);
-            console.log(`Final pool shirt balance: ${fromWei(poolShirtBalance)}`);
+            console.log(`Final pool shirt balance: ${Decimal(fromWei(poolShirtBalance)).toFixed(4)}`);
 
             let cnt = 0;
             while (Decimal(fromWei(poolDaiBalance)) > 0.001 && Decimal(fromWei(poolShirtBalance)) > 0.001) {
@@ -353,9 +363,9 @@ contract('Bankless Simulation', async (accounts) => {
                                                         toWei(numPoolTokens));
 
                 poolDaiBalance = await dai.balanceOf.call(underlyingPool.address);
-                console.log(`Pool Dai balance: ${fromWei(poolDaiBalance)}`);
+                console.log(`Pool Dai balance: ${Decimal(fromWei(poolDaiBalance)).toFixed(2)}`);
                 poolShirtBalance = await bap0.balanceOf.call(underlyingPool.address);
-                console.log(`Pool shirt balance: ${fromWei(poolShirtBalance)}`);
+                console.log(`Pool shirt balance: ${Decimal(fromWei(poolShirtBalance)).toFixed(4)}`);
                 cnt++;
 
                 if (5 == cnt) {
@@ -369,12 +379,12 @@ contract('Bankless Simulation', async (accounts) => {
             console.log(`Withdrew in ${cnt} steps`);
 
             const adminDaiBalance = await dai.balanceOf.call(admin);
-            console.log(`Final admin Dai balance: ${fromWei(adminDaiBalance)}`);
+            console.log(`Final admin Dai balance: ${Decimal(fromWei(adminDaiBalance)).toFixed(2)}`);
             const adminShirtBalance = await bap0.balanceOf.call(admin);
-            console.log(`Final admin shirt balance: ${fromWei(adminShirtBalance)}`);
+            console.log(`Final admin shirt balance: ${Decimal(fromWei(adminShirtBalance)).toFixed(4)}`);
 
             assert.isAtLeast(parseFloat(fromWei(adminDaiBalance)), parseInt(initialDaiDeposit));
-            assert.isAtLeast(parseFloat(fromWei(adminShirtBalance)), 1);
+            assert.isAtLeast(parseFloat(fromWei(adminShirtBalance)), 1.99);
             assert.isAtMost(parseFloat(fromWei(adminShirtBalance)), 2);
         });
     });

@@ -85,7 +85,7 @@ contract('updateWeightsGradually', async (accounts) => {
                 blockRange = 20;
                 // get current block number
                 const block = await web3.eth.getBlock('latest');
-                console.log("Block of updateWeightsGradually() call: "+block.number)
+                console.log(`Block of updateWeightsGradually() call: ${block.number}`);
                 startBlock = block.number + 10;
                 endBlock = startBlock + blockRange;
                 const endWeights = [toWei('39'), toWei('1')];
@@ -115,8 +115,8 @@ contract('updateWeightsGradually', async (accounts) => {
                     weightWETH = await controller.getDenormalizedWeight(WETH);
                     block = await web3.eth.getBlock("latest");
                     console.log('Block: ' + block.number + '. Weights -> XYZ: ' +
-                        (weightXYZ*2.5/10**18).toString() + '%\tWETH: ' +
-                        (weightWETH*2.5/10**18).toString() + '%');
+                        (weightXYZ*2.5/10**18).toFixed(4) + '%\tWETH: ' +
+                        (weightWETH*2.5/10**18).toFixed(4) + '%');
                     await controller.pokeWeights();
                 }
 
@@ -137,8 +137,8 @@ contract('updateWeightsGradually', async (accounts) => {
                     assert.isTrue(weightWETH - endWeights[1] == 0);
 
                     console.log('Block: ' + block.number + '. Weights -> XYZ: ' +
-                        (weightXYZ*2.5/10**18).toString() + '%\tWETH: ' +
-                        (weightWETH*2.5/10**18).toString() + '%');
+                        (weightXYZ*2.5/10**18).toFixed(4) + '%\tWETH: ' +
+                        (weightWETH*2.5/10**18).toFixed(4) + '%');
                     await controller.pokeWeights();
                 }
             });
@@ -147,7 +147,6 @@ contract('updateWeightsGradually', async (accounts) => {
                 blockRange = 50;
                 // get current block number
                 let block = await web3.eth.getBlock('latest');
-                // console.log("Block of updateWeightsGradually() call: "+block.number)
                 startBlock = block.number + 10;
                 const endBlock = startBlock + blockRange;
                 const endWeights = [toWei('1'), toWei('39')];
@@ -170,8 +169,8 @@ contract('updateWeightsGradually', async (accounts) => {
                     weightWETH = await controller.getDenormalizedWeight(WETH);
                     block = await web3.eth.getBlock("latest");
                     console.log('Block: ' + block.number + '. Weights -> XYZ: ' +
-                        (weightXYZ*2.5/10**18).toString() + '%\tWETH: ' +
-                        (weightWETH*2.5/10**18).toString() + '%');
+                        (weightXYZ*2.5/10**18).toFixed(4) + '%\tWETH: ' +
+                        (weightWETH*2.5/10**18).toFixed(4) + '%');
                     await controller.pokeWeights();
                 }
 
@@ -207,8 +206,8 @@ contract('updateWeightsGradually', async (accounts) => {
                             weightWETH = await controller.getDenormalizedWeight(WETH);
                             block = await web3.eth.getBlock("latest");
                             console.log('Block: ' + block.number + '. Weights -> XYZ: ' +
-                                (weightXYZ*2.5/10**18).toString() + '%\tWETH: ' +
-                                (weightWETH*2.5/10**18).toString() + '%');
+                                (weightXYZ*2.5/10**18).toFixed(4) + '%\tWETH: ' +
+                                (weightWETH*2.5/10**18).toFixed(4) + '%');
                             await controller.pokeWeights();
                         }
                     }

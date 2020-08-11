@@ -8,6 +8,8 @@ import "../libraries/BalancerConstants.sol";
 
 // Interface declarations
 
+/* solhint-disable func-order */
+
 interface IERC20 {
     // Emitted when the allowance of a spender for an owner is set by a call to approve.
     // Value is the new allowance
@@ -60,6 +62,7 @@ contract PCToken is IERC20 {
 
     // No leading underscore per naming convention (non-private)
     // Cannot call totalSupply (name conflict)
+    // solhint-disable-next-line private-vars-leading-underscore
     uint internal varTotalSupply;
 
     mapping(address => uint) private _balance;
@@ -191,9 +194,12 @@ contract PCToken is IERC20 {
 
         _move(sender, recipient, amount);
 
+        // memoize for gas optimization
+        uint oldAllowance = _allowance[sender][msg.sender];
+
         // If the sender is not the caller, adjust the allowance by the amount transferred
-        if (msg.sender != sender && _allowance[sender][msg.sender] != uint(-1)) {
-            _allowance[sender][msg.sender] = BalancerSafeMath.bsub(_allowance[sender][msg.sender], amount);
+        if (msg.sender != sender && oldAllowance != uint(-1)) {
+            _allowance[sender][msg.sender] = BalancerSafeMath.bsub(oldAllowance, amount);
 
             emit Approval(msg.sender, recipient, _allowance[sender][msg.sender]);
         }
@@ -261,7 +267,8 @@ contract PCToken is IERC20 {
     // Emit a transfer amount from this contract to the null address
     function _burn(uint amount) internal {
         // Can't burn more than we have
-        require(_balance[address(this)] >= amount, "ERR_INSUFFICIENT_BAL");
+        // Remove require for gas optimization - bsub will revert on underflow
+        // require(_balance[address(this)] >= amount, "ERR_INSUFFICIENT_BAL");
 
         _balance[address(this)] = BalancerSafeMath.bsub(_balance[address(this)], amount);
         varTotalSupply = BalancerSafeMath.bsub(varTotalSupply, amount);
@@ -273,7 +280,8 @@ contract PCToken is IERC20 {
     // Adjust balances, and emit a Transfer event
     function _move(address sender, address recipient, uint amount) internal {
         // Can't send more than sender has
-        require(_balance[sender] >= amount, "ERR_INSUFFICIENT_BAL");
+        // Remove require for gas optimization - bsub will revert on underflow
+        // require(_balance[sender] >= amount, "ERR_INSUFFICIENT_BAL");
 
         _balance[sender] = BalancerSafeMath.bsub(_balance[sender], amount);
         _balance[recipient] = BalancerSafeMath.badd(_balance[recipient], amount);

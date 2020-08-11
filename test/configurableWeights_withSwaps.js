@@ -101,7 +101,6 @@ contract('configurableWeights_withSwaps', async (accounts) => {
             blockRange = 20;
             // get current block number
             const block = await web3.eth.getBlock('latest');
-            // console.log("Block of updateWeightsGradually() call: "+block.number)
             const startBlock = block.number + 3;
             const endBlock = startBlock + blockRange;
             const endWeights = [toWei('39'), toWei('1')];
@@ -167,8 +166,8 @@ contract('configurableWeights_withSwaps', async (accounts) => {
                 weightWETH = await controller.getDenormalizedWeight(WETH);
                 block = await web3.eth.getBlock('latest');
                 console.log('Block: ' + block.number + '. Weights -> July: ' +
-                    (weightXYZ*2.5/10**18).toString() + '%\tJune: ' +
-                    (weightWETH*2.5/10**18).toString() + '%');
+                    (weightXYZ*2.5/10**18).toFixed(4) + '%\tJune: ' +
+                    (weightWETH*2.5/10**18).toFixed(4) + '%');
                 await controller.pokeWeights();
 
                 if (i % 3 == 0) {
