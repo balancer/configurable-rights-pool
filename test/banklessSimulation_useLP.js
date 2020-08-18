@@ -19,6 +19,7 @@ contract('Bankless Simulation', async (accounts) => {
 
     const { toWei, fromWei } = web3.utils;
     const MAX = web3.utils.toTwosComplement(-1);
+    const MaxBig256 = '115792089237316195423570985008687907853269984665640564039457.584007913129639935';
     const errorDelta = 10 ** -8;
     const numPoolTokens = '1000';
 
@@ -45,8 +46,8 @@ contract('Bankless Simulation', async (accounts) => {
         canChangeSwapFee: true,
         canChangeWeights: true,
         canAddRemoveTokens: false,
-        canWhitelistLPs: false,
-        canChangeCap: true,
+        canWhitelistLPs: true,
+        canChangeCap: false,
     };
 
     before(async () => {
@@ -108,7 +109,7 @@ contract('Bankless Simulation', async (accounts) => {
         let x;
         for (x = 0; x < permissions.length; x++) {
             const perm = await crpPool.hasPermission(x);
-            if (x == 3 || x == 4) {
+            if (x == 3 || x == 5) {
                 assert.isFalse(perm);
             }
             else {
@@ -117,22 +118,20 @@ contract('Bankless Simulation', async (accounts) => {
         }
     });
 
-    it('ConfigurableRightsPool cap should be initial supply after creation', async () => {
-        const cap = await crpPool.getCap.call();
-        const supply = await crpPool.totalSupply.call();
-
-        assert.equal(fromWei(cap), fromWei(supply));
+    it('ConfigurableRightsPool cap should be MAX after creation', async () => {
+        const currentCap = await crpPool.getCap.call();
+        assert.equal(MaxBig256, fromWei(currentCap).toString());
     });
 
     it('Should not allow anyone to add liquidity', async () => {
         await truffleAssert.reverts(
             crpPool.joinswapPoolAmountOut.call(DAI, toWei('1'), MAX),
-            'ERR_CAP_LIMIT_REACHED',
+            'ERR_NOT_ON_WHITELIST',
         );    
 
         await truffleAssert.reverts(
             crpPool.joinswapPoolAmountOut.call(DAI, toWei('1'), MAX, {from: user3}),
-            'ERR_CAP_LIMIT_REACHED',
+            'ERR_NOT_ON_WHITELIST',
         );    
     });
 
@@ -329,9 +328,7 @@ contract('Bankless Simulation', async (accounts) => {
             let daiWithdrawal;
             let shirtWithdrawal;
 
-            // set the cap to 0 so that no one can join while we're withdrawing from the pool
-            await crpPool.setCap(0);
-            // also prevent trading
+            // Prevent trading
             await crpPool.setPublicSwap(false);
 
             await truffleAssert.reverts(
@@ -374,7 +371,7 @@ contract('Bankless Simulation', async (accounts) => {
                     // Should not be able to join while it's being drained after the auction
                     await truffleAssert.reverts(
                         crpPool.joinswapPoolAmountOut.call(DAI, toWei('1'), MAX),
-                        'ERR_CAP_LIMIT_REACHED',
+                        'ERR_NOT_ON_WHITELIST',
                     );
 
                     // Should not be able to swap while it's being drained after the auction

@@ -44,9 +44,12 @@ library RightsManager {
 
     // Functions
 
-    // Used in ConfigurableRightsPool constructor, so that we don't need to hard-code the number of permissions
-    // If you pass an empty array, it will construct it using the defaults
-    // See note above about external vs internal
+    /**
+     * @notice create a struct from an array (or return defaults)
+     * @dev If you pass an empty array, it will construct it using the defaults
+     * @param a - array input
+     * @return Rights struct
+     */ 
     function constructRights(bool[] calldata a) external pure returns (Rights memory) {
         if (a.length == 0) {
             return Rights(DEFAULT_CAN_PAUSE_SWAPPING,
@@ -59,6 +62,25 @@ library RightsManager {
         else {
             return Rights(a[0], a[1], a[2], a[3], a[4], a[5]);
         }
+    }
+
+    /**
+     * @notice Convert rights struct to an array (e.g., for events, GUI)
+     * @dev avoids multiple calls to hasPermission
+     * @param rights - the rights struct to convert
+     * @return boolean array containing the rights settings
+     */
+    function convertRights(Rights calldata rights) external pure returns (bool[] memory) {
+        bool[] memory result = new bool[](6);
+
+        result[0] = rights.canPauseSwapping;
+        result[1] = rights.canChangeSwapFee;
+        result[2] = rights.canChangeWeights;
+        result[3] = rights.canAddRemoveTokens;
+        result[4] = rights.canWhitelistLPs;
+        result[5] = rights.canChangeCap;
+
+        return result;
     }
 
     // Though it is actually simple, the number of branches triggers code-complexity

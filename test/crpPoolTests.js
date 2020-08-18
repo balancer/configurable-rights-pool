@@ -8,6 +8,7 @@ const TToken = artifacts.require('TToken');
 const truffleAssert = require('truffle-assertions');
 const Decimal = require('decimal.js');
 const { calcRelativeDiff } = require('../lib/calc_comparisons');
+const { assert } = require('chai');
 
 const verbose = process.env.VERBOSE;
 
@@ -203,6 +204,13 @@ contract('crpPoolTests', async (accounts) => {
             crpPool.joinPool(toWei('0'), [MAX, MAX, MAX]),
             'ERR_MATH_APPROX',
         );
+    });
+
+    it('Should get permissions as an array', async () => {
+        const flags = await crpPool.rights();
+
+        assert.sameMembers([flags[0],flags[1],flags[2],flags[3],flags[4],flags[5]],
+                           [true,true,true,true,false,false]);
     });
 
     it('JoinPool should not revert if smart pool is finalized', async () => {

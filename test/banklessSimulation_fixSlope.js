@@ -99,14 +99,14 @@ contract('Bankless Simulation (mid-stream adjustment)', async (accounts) => {
     });
 
     it('crpPool should have correct rights set', async () => {
-        const capRight = await crpPool.hasPermission(5);
-        assert.isTrue(capRight);
-
         let x;
         for (x = 0; x < permissions.length; x++) {
-            if (x !== 5) {
-                const otherPerm = await crpPool.hasPermission(x);
-                assert.isFalse(otherPerm);
+            const perm = await crpPool.hasPermission(x);
+            if (x == 3 || x == 4) {
+                assert.isFalse(perm);
+            }
+            else {
+                assert.isTrue(perm)
             }
         }
     });

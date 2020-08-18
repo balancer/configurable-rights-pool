@@ -46,7 +46,7 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
     IBPool public bPool;
 
     // Struct holding the rights configuration
-    RightsManager.Rights private _rights;
+    RightsManager.Rights public rights;
 
     // This is for adding a new (currently unbound) token to the pool
     // It's a two-step process: commitAddToken(), then applyAddToken()
@@ -155,7 +155,7 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
      * @param startBalances - initial token balances
      * @param startWeights - initial token weights
      * @param swapFee - initial swap fee (will set on the core pool after pool creation)
-     * @param rights - Set of permissions we are assigning to this smart pool
+     * @param rightsStruct - Set of permissions we are assigning to this smart pool
      */
     constructor(
         address factoryAddress,
@@ -164,7 +164,7 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
         uint[] memory startBalances,
         uint[] memory startWeights,
         uint swapFee,
-        RightsManager.Rights memory rights
+        RightsManager.Rights memory rightsStruct
     )
         public
         PCToken(tokenSymbolString)
@@ -187,6 +187,7 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
         // we can let bind() catch things like that (i.e., not things that might reasonably work)
 
         bFactory = IBFactory(factoryAddress);
+        rights = rightsStruct;
         _tokens = tokens;
         _startBalances = startBalances;
         _startWeights = startWeights;
@@ -197,7 +198,6 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
         _startBlock = 0;
         // By default, there is no cap (unlimited pool token minting)
         _bspCap = BalancerConstants.MAX_UINT;
-        _rights = rights;
     }
 
     // External functions
@@ -216,7 +216,7 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
         needsBPool
         virtual
     {
-        require(_rights.canChangeSwapFee, "ERR_NOT_CONFIGURABLE_SWAP_FEE");
+        require(rights.canChangeSwapFee, "ERR_NOT_CONFIGURABLE_SWAP_FEE");
 
         // Like the _token list, this is only needed between construction and createPool
         // The _token list is destroyed in createPool to prevent later use, but _swapFee
@@ -273,7 +273,7 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
         needsBPool
         onlyOwner
     {
-        require(_rights.canChangeCap, "ERR_CANNOT_CHANGE_CAP");
+        require(rights.canChangeCap, "ERR_CANNOT_CHANGE_CAP");
 
         emit CapChanged(msg.sender, _bspCap, newCap);
 
@@ -299,7 +299,7 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
         needsBPool
         virtual
     {
-        require(_rights.canPauseSwapping, "ERR_NOT_PAUSABLE_SWAP");
+        require(rights.canPauseSwapping, "ERR_NOT_PAUSABLE_SWAP");
 
         bPool.setPublicSwap(publicSwap);
     }
@@ -367,7 +367,7 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
         // Defensive programming, so that there is no gap between creating the pool
         // (initialized to unlimited in the constructor), and setting the cap,
         // which they will presumably do if they have this right.
-        if (_rights.canChangeCap) {
+        if (rights.canChangeCap) {
             _bspCap = initialSupply;
         }
 
@@ -437,7 +437,7 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
         // Defensive programming, so that there is no gap between creating the pool
         // (initialized to unlimited in the constructor), and setting the cap,
         // which they will presumably do if they have this right.
-        if (_rights.canChangeCap) {
+        if (rights.canChangeCap) {
             _bspCap = initialSupply;
         }
 
@@ -492,7 +492,7 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
         needsBPool
         virtual
     {
-        require(_rights.canChangeWeights, "ERR_NOT_CONFIGURABLE_WEIGHTS");
+        require(rights.canChangeWeights, "ERR_NOT_CONFIGURABLE_WEIGHTS");
 
         // We don't want people to set weights manually if there's a block-based update in progress
         require(_startBlock == 0, "ERR_NO_UPDATE_DURING_GRADUAL");
@@ -524,7 +524,7 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
         needsBPool
         virtual
     {
-        require(_rights.canChangeWeights, "ERR_NOT_CONFIGURABLE_WEIGHTS");
+        require(rights.canChangeWeights, "ERR_NOT_CONFIGURABLE_WEIGHTS");
         // After createPool, token list is maintained in the underlying BPool
         address[] memory poolTokens = bPool.getCurrentTokens();
 
@@ -565,7 +565,7 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
         needsBPool
         virtual
     {
-        require(_rights.canChangeWeights, "ERR_NOT_CONFIGURABLE_WEIGHTS");
+        require(rights.canChangeWeights, "ERR_NOT_CONFIGURABLE_WEIGHTS");
 
         // Don't modify state after external call (re-entrancy protection)
         uint currentStartBlock = _startBlock;
@@ -605,7 +605,7 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
         needsBPool
         virtual
     {
-        require(_rights.canAddRemoveTokens, "ERR_CANNOT_ADD_REMOVE_TOKENS");
+        require(rights.canAddRemoveTokens, "ERR_CANNOT_ADD_REMOVE_TOKENS");
 
         // Can't do this while a progressive update is happening
         require(_startBlock == 0, "ERR_NO_UPDATE_DURING_GRADUAL");
@@ -631,7 +631,7 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
         needsBPool
         virtual
     {
-        require(_rights.canAddRemoveTokens, "ERR_CANNOT_ADD_REMOVE_TOKENS");
+        require(rights.canAddRemoveTokens, "ERR_CANNOT_ADD_REMOVE_TOKENS");
 
         // Delegate to library to save space
         SmartPoolManager.applyAddToken(
@@ -654,7 +654,7 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
         onlyOwner
         needsBPool
     {
-        require(_rights.canAddRemoveTokens, "ERR_CANNOT_ADD_REMOVE_TOKENS");
+        require(rights.canAddRemoveTokens, "ERR_CANNOT_ADD_REMOVE_TOKENS");
         // After createPool, token list is maintained in the underlying BPool
         address[] memory poolTokens = bPool.getCurrentTokens();
 
@@ -683,7 +683,7 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
         needsBPool
         withinCap
     {
-        require(!_rights.canWhitelistLPs || _liquidityProviderWhitelist[msg.sender],
+        require(!rights.canWhitelistLPs || _liquidityProviderWhitelist[msg.sender],
                 "ERR_NOT_ON_WHITELIST");
 
         // Delegate to library to save space
@@ -779,7 +779,7 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
         withinCap
         returns (uint poolAmountOut)
     {
-        require(!_rights.canWhitelistLPs || _liquidityProviderWhitelist[msg.sender],
+        require(!rights.canWhitelistLPs || _liquidityProviderWhitelist[msg.sender],
                 "ERR_NOT_ON_WHITELIST");
 
         // Delegate to library to save space
@@ -821,7 +821,7 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
         withinCap
         returns (uint tokenAmountIn)
     {
-        require(!_rights.canWhitelistLPs || _liquidityProviderWhitelist[msg.sender],
+        require(!rights.canWhitelistLPs || _liquidityProviderWhitelist[msg.sender],
                 "ERR_NOT_ON_WHITELIST");
 
         // Delegate to library to save space
@@ -942,7 +942,7 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
         lock
         logs
     {
-        require(_rights.canWhitelistLPs, "ERR_CANNOT_WHITELIST_LPS");
+        require(rights.canWhitelistLPs, "ERR_CANNOT_WHITELIST_LPS");
         require(provider != address(0), "ERR_INVALID_ADDRESS");
 
         _liquidityProviderWhitelist[provider] = true;
@@ -958,7 +958,7 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
         lock
         logs
     {
-        require(_rights.canWhitelistLPs, "ERR_CANNOT_WHITELIST_LPS");
+        require(rights.canWhitelistLPs, "ERR_CANNOT_WHITELIST_LPS");
         require(_liquidityProviderWhitelist[provider], "ERR_LP_NOT_WHITELISTED");
         require(provider != address(0), "ERR_INVALID_ADDRESS");
 
@@ -975,7 +975,7 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
         view
         returns(bool)
     {
-        if (_rights.canWhitelistLPs) {
+        if (rights.canWhitelistLPs) {
             return _liquidityProviderWhitelist[provider];
         }
         else {
@@ -997,7 +997,7 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
         virtual
         returns(bool)
     {
-        return RightsManager.hasPermission(_rights, permission);
+        return RightsManager.hasPermission(rights, permission);
     }
 
     /**
