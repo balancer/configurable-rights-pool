@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity ^0.6.6;
+pragma solidity 0.6.12;
 
 /**
  * @author Balancer Labs
@@ -7,7 +7,6 @@ pragma solidity ^0.6.6;
  */
 
 library BalancerConstants {
-
     // State variables (must be constant in a library)
 
     // B "ONE" - all math is in the "realm" of 10 ** 18;

@@ -1,14 +1,17 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity ^0.6.6;
+pragma solidity 0.6.12;
 
 // Needed to pass in structs
 pragma experimental ABIEncoderV2;
 
 // Imports
 
+import "../interfaces/IERC20.sol";
 import "../contracts/ConfigurableRightsPool.sol";
-import "../contracts/PCToken.sol";
 import "../contracts/IBFactory.sol";
+import "./BalancerConstants.sol";
+import "./BalancerSafeMath.sol";
+import "./SafeApprove.sol";
 
 
 /**
@@ -274,14 +277,13 @@ library SmartPoolManager {
         newToken.isCommitted = false;
 
         // First gets the tokens from msg.sender to this contract (Pool Controller)
-        // bool xfer = IERC20(newToken.addr).transferFrom(msg.sender, address(this), newToken.balance);
         bool returnValue = IERC20(newToken.addr).transferFrom(self.getController(), address(self), newToken.balance);
         require(returnValue, "ERR_ERC20_FALSE");
 
         // Now with the tokens this contract can bind them to the pool it controls
         // Approves bPool to pull from this controller
         // Approve unlimited, same as when creating the pool, so they can join pools later
-        returnValue = IERC20(newToken.addr).approve(address(bPool), uint(-1));
+        returnValue = SafeApprove.safeApprove(IERC20(newToken.addr), address(bPool), BalancerConstants.MAX_UINT);
         require(returnValue, "ERR_ERC20_FALSE");
 
         bPool.bind(newToken.addr, newToken.balance, newToken.denorm);
@@ -292,6 +294,11 @@ library SmartPoolManager {
 
      /**
      * @notice Remove a token from the pool
+     * @dev Logic in the CRP controls when ths can be called. There are two related permissions:
+     *      AddRemoveTokens - which allows removing down to the underlying BPool limit of two
+     *      RemoveAllTokens - which allows completely draining the pool by removing all tokens
+     *                        This can result in a non-viable pool with 0 or 1 tokens (by design),
+     *                        meaning all swapping or binding operations would fail in this state
      * @param self - ConfigurableRightsPool instance calling the library
      * @param bPool - Core BPool the CRP is wrapping
      * @param token - token to remove

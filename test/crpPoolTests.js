@@ -29,6 +29,8 @@ contract('crpPoolTests', async (accounts) => {
     const startWeights = [toWei('12'), toWei('1.5'), toWei('1.5')];
     const startBalances = [toWei('80000'), toWei('40'), toWei('10000')];
     const SYMBOL = (Math.random() + 1).toString(36).substring(7); // 'BSP';
+    const NAME = "Balancer Smart Pool Custom Name";
+
     const permissions = {
         canPauseSwapping: true,
         canChangeSwapFee: true,
@@ -69,23 +71,24 @@ contract('crpPoolTests', async (accounts) => {
         await dai.mint(admin, toWei('15000'));
         await xyz.mint(admin, toWei('100000'));
 
+        const poolParams = {
+            tokenSymbol: SYMBOL,
+            tokenName: NAME,
+            tokens: [XYZ, WETH, DAI],
+            startBalances: startBalances,
+            startWeights: startWeights,
+            swapFee: swapFee,
+        }
+
         CRPPOOL = await crpFactory.newCrp.call(
             bFactory.address,
-            SYMBOL,
-            [XYZ, WETH, DAI],
-            startBalances,
-            startWeights,
-            swapFee,
+            poolParams,
             permissions,
         );
 
         await crpFactory.newCrp(
             bFactory.address,
-            SYMBOL,
-            [XYZ, WETH, DAI],
-            startBalances,
-            startWeights,
-            swapFee,
+            poolParams,
             permissions,
         );
 
@@ -403,7 +406,7 @@ contract('crpPoolTests', async (accounts) => {
     describe('PCToken interactions', () => {
         it('Token descriptors', async () => {
             const name = await crpPool.name();
-            assert.equal(name, 'Balancer Smart Pool');
+            assert.equal(name, NAME); // 'Balancer Smart Pool-' + SYMBOL);
 
             const symbol = await crpPool.symbol();
             assert.equal(symbol, SYMBOL);

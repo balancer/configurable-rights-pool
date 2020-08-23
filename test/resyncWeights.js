@@ -26,6 +26,8 @@ contract('elasticSupplyPool', async (accounts) => {
     // These are the intial settings for newCrp:
     const swapFee = 10 ** 15;
     const SYMBOL = 'BAL-USDC-DAI';
+    const NAME = 'Balancer Pool Token';
+
     const permissions = {
         canPauseSwapping: false,
         canChangeSwapFee: false,
@@ -33,6 +35,7 @@ contract('elasticSupplyPool', async (accounts) => {
         canAddRemoveTokens: false,
         canWhitelistLPs: false,
         canChangeCap: false,
+        canRemoveAllTokens: false,
     };
 
     describe('resyncWeight', () => {
@@ -53,23 +56,24 @@ contract('elasticSupplyPool', async (accounts) => {
             const tokenAddresses = [USDC, DAI];
             const startBalances = [toWei('10000'), toWei('10000')];
 
+            const poolParams = {
+                tokenSymbol: SYMBOL,
+                tokenName: NAME,
+                tokens: tokenAddresses,
+                startBalances: startBalances,
+                startWeights: startWeights,
+                swapFee: swapFee,
+            }
+    
             CRPPOOL = await crpFactory.newEsp.call(
                 bFactory.address,
-                SYMBOL,
-                tokenAddresses,
-                startBalances,
-                startWeights,
-                swapFee,
+                poolParams,
                 permissions,
             );
 
             await crpFactory.newEsp(
                 bFactory.address,
-                SYMBOL,
-                tokenAddresses,
-                startBalances,
-                startWeights,
-                swapFee,
+                poolParams,
                 permissions,
             );
 

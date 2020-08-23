@@ -29,6 +29,8 @@ contract('CRPFactory', async (accounts) => {
     const startBalances = [toWei('80000'), toWei('40'), toWei('10000')];
     const SYMBOL = 'BSP';
     const LONG_SYMBOL = '012345678901234567890123456789012'
+    const NAME = 'Balancer Pool Token';
+
     const permissions = {
         canPauseSwapping: false,
         canChangeSwapFee: false,
@@ -36,6 +38,7 @@ contract('CRPFactory', async (accounts) => {
         canAddRemoveTokens: true,
         canWhitelistLPs: false,
         canChangeCap: false,
+        canRemoveAllTokens: false,
     };
 
     // Can't seem to break it with this - possibly the optimizer is removing unused values?
@@ -49,6 +52,7 @@ contract('CRPFactory', async (accounts) => {
         canAddRemoveTokens: true,
         canWhitelistLPs: false,
         canChangeCap: false,
+        canRemoveAllTokens: false,
         canMakeMischief: true,
         canOverflowArray: true,
         canBeThreeTooLong: true,
@@ -70,23 +74,24 @@ contract('CRPFactory', async (accounts) => {
         await dai.mint(admin, toWei('15000'));
         await xyz.mint(admin, toWei('100000'));
 
+        const poolParams = {
+            tokenSymbol: SYMBOL,
+            tokenName: NAME,
+            tokens: [XYZ, WETH, DAI],
+            startBalances: startBalances,
+            startWeights: startWeights,
+            swapFee: swapFee,
+        }
+
         CRPPOOL = await crpFactory.newCrp.call(
             bFactory.address,
-            SYMBOL,
-            [XYZ, WETH, DAI],
-            startBalances,
-            startWeights,
-            swapFee,
+            poolParams,
             permissions,
         );
 
         await crpFactory.newCrp(
             bFactory.address,
-            SYMBOL,
-            [XYZ, WETH, DAI],
-            startBalances,
-            startWeights,
-            swapFee,
+            poolParams,
             longPermissions, // tolerates extra data at end (calldata still the same size)
         );
 
@@ -116,14 +121,19 @@ contract('CRPFactory', async (accounts) => {
     it('should not be able to create with mismatched start Weights', async () => {
         const badStartWeights = [toWei('12'), toWei('1.5')];
 
+        const poolParams = {
+            tokenSymbol: SYMBOL,
+            tokenName: NAME,
+            tokens: [XYZ, WETH, DAI],
+            startBalances: startBalances,
+            startWeights: badStartWeights,
+            swapFee: swapFee,
+        }
+
         await truffleAssert.reverts(
             crpFactory.newCrp(
                 bFactory.address,
-                SYMBOL,
-                [XYZ, WETH, DAI],
-                startBalances,
-                badStartWeights,
-                swapFee,
+                poolParams,
                 permissions,
             ),
             'ERR_START_WEIGHTS_MISMATCH'
@@ -133,14 +143,19 @@ contract('CRPFactory', async (accounts) => {
     it('should not be able to create with mismatched start Balances', async () => {
         const badStartBalances = [toWei('80000'), toWei('40'), toWei('10000'), toWei('5000')];
 
+        const poolParams = {
+            tokenSymbol: SYMBOL,
+            tokenName: NAME,
+            tokens: [XYZ, WETH, DAI],
+            startBalances: badStartBalances,
+            startWeights: startWeights,
+            swapFee: swapFee,
+        }
+
         await truffleAssert.reverts(
             crpFactory.newCrp(
                 bFactory.address,
-                SYMBOL,
-                [XYZ, WETH, DAI],
-                badStartBalances,
-                startWeights,
-                swapFee,
+                poolParams,
                 permissions,
             ),
             'ERR_START_BALANCES_MISMATCH'
@@ -148,26 +163,36 @@ contract('CRPFactory', async (accounts) => {
     });
 
     it('should still be able to create with a long symbol', async () => {
+        const poolParams = {
+            tokenSymbol: LONG_SYMBOL,
+            tokenName: NAME,
+            tokens: [XYZ, WETH, DAI],
+            startBalances: startBalances,
+            startWeights: startWeights,
+            swapFee: swapFee,
+        }
+
         crpFactory.newCrp(
             bFactory.address,
-            LONG_SYMBOL,
-            [XYZ, WETH, DAI],
-            startBalances,
-            startWeights,
-            swapFee,
+            poolParams,
             permissions,
         );
     });
 
     it('should not be able to create with zero fee', async () => {
+        const poolParams = {
+            tokenSymbol: LONG_SYMBOL,
+            tokenName: NAME,
+            tokens: [XYZ, WETH, DAI],
+            startBalances: startBalances,
+            startWeights: startWeights,
+            swapFee: 0,
+        }
+
         await truffleAssert.reverts(
             crpFactory.newCrp(
                 bFactory.address,
-                SYMBOL,
-                [XYZ, WETH, DAI],
-                startBalances,
-                startWeights,
-                0,
+                poolParams,
                 permissions,
             ),
             'ERR_INVALID_SWAP_FEE'
@@ -179,14 +204,19 @@ contract('CRPFactory', async (accounts) => {
         // Have to pass it as a string for some reason...
         const invalidSwapFee = '200000000000000000';
 
+        const poolParams = {
+            tokenSymbol: SYMBOL,
+            tokenName: NAME,
+            tokens: [XYZ, WETH, DAI],
+            startBalances: startBalances,
+            startWeights: startWeights,
+            swapFee: invalidSwapFee,
+        }
+
         await truffleAssert.reverts(
             crpFactory.newCrp(
                 bFactory.address,
-                SYMBOL,
-                [XYZ, WETH, DAI],
-                startBalances,
-                startWeights,
-                invalidSwapFee,
+                poolParams,
                 permissions,
             ),
             'ERR_INVALID_SWAP_FEE'
@@ -196,14 +226,19 @@ contract('CRPFactory', async (accounts) => {
     it('should not be able to create with a single token', async () => {
         // Max is 10**18 / 10
         // Have to pass it as a string for some reason...
+        const poolParams = {
+            tokenSymbol: SYMBOL,
+            tokenName: NAME,
+            tokens: [DAI],
+            startBalances: [toWei('1000')],
+            startWeights: [toWei('20')],
+            swapFee: swapFee,
+        }
+
         await truffleAssert.reverts(
             crpFactory.newCrp(
                 bFactory.address,
-                SYMBOL,
-                [DAI],
-                [toWei('1000')],
-                [toWei('20')],
-                swapFee,
+                poolParams,
                 permissions,
             ),
             'ERR_TOO_FEW_TOKENS'
@@ -213,16 +248,22 @@ contract('CRPFactory', async (accounts) => {
     it('should not be able to create with more than the max tokens', async () => {
         // Max is 10**18 / 10
         // Have to pass it as a string for some reason...
+        const poolParams = {
+            tokenSymbol: SYMBOL,
+            tokenName: NAME,
+            tokens: [DAI, DAI, DAI, DAI, DAI, DAI, DAI, DAI, DAI],
+            startBalances: [toWei('1000'), toWei('1000'), toWei('1000'), toWei('1000'),
+                            toWei('1000'), toWei('1000'), toWei('1000'), toWei('1000'),
+                            toWei('1000')],
+            startWeights: [toWei('20'), toWei('20'), toWei('20'), toWei('20'),
+                           toWei('20'), toWei('20'), toWei('20'), toWei('20'), toWei('20')],
+            swapFee: swapFee,
+        }
+
         await truffleAssert.reverts(
             crpFactory.newCrp(
                 bFactory.address,
-                SYMBOL,
-                [DAI, DAI, DAI, DAI, DAI, DAI, DAI, DAI, DAI],
-                [toWei('1000'), toWei('1000'), toWei('1000'), toWei('1000'),
-                 toWei('1000'), toWei('1000'), toWei('1000'), toWei('1000'), toWei('1000')],
-                 [toWei('20'), toWei('20'), toWei('20'), toWei('20'),
-                  toWei('20'), toWei('20'), toWei('20'), toWei('20'), toWei('20')],
-                swapFee,
+                poolParams,
                 permissions,
             ),
             'ERR_TOO_MANY_TOKENS'

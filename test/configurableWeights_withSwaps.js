@@ -20,6 +20,8 @@ contract('configurableWeights_withSwaps', async (accounts) => {
     const errorDelta = 10 ** -4;
 
     const SYMBOL = 'BSP';
+    const NAME = 'Balancer Pool Token';
+
     const permissions = {
         canPauseSwapping: false,
         canChangeSwapFee: false,
@@ -27,6 +29,7 @@ contract('configurableWeights_withSwaps', async (accounts) => {
         canAddRemoveTokens: true,
         canWhitelistLPs: false,
         canChangeCap: false,
+        canRemoveAllTokens: false,
     };
 
     describe('CWS Factory', () => {
@@ -67,23 +70,24 @@ contract('configurableWeights_withSwaps', async (accounts) => {
             await xyz.mint(user2, toWei('100000000'));
             await abc.mint(user2, toWei('100000000'));
 
+            const poolParams = {
+                tokenSymbol: SYMBOL,
+                tokenName: NAME,
+                tokens: [XYZ, WETH],
+                startBalances: startBalances,
+                startWeights: startWeights,
+                swapFee: 10 ** 15,
+            }
+    
             CONTROLLER = await factory.newCrp.call(
                 bfactory.address,
-                SYMBOL,
-                [XYZ, WETH],
-                startBalances,
-                startWeights,
-                10 ** 15, // swapFee
+                poolParams,
                 permissions,
             );
 
             await factory.newCrp(
                 bfactory.address,
-                SYMBOL,
-                [XYZ, WETH],
-                startBalances,
-                startWeights,
-                10 ** 15, // swapFee
+                poolParams,
                 permissions,
             );
 

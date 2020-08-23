@@ -1,53 +1,15 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity ^0.6.6;
+pragma solidity 0.6.12;
 
 // Imports
 
 import "../libraries/BalancerSafeMath.sol";
 import "../libraries/BalancerConstants.sol";
-
-// Interface declarations
-
-/* solhint-disable func-order */
-
-interface IERC20 {
-    // Emitted when the allowance of a spender for an owner is set by a call to approve.
-    // Value is the new allowance
-    event Approval(address indexed owner, address indexed spender, uint value);
-
-    // Emitted when value tokens are moved from one account (from) to another (to).
-    // Note that value may be zero
-    event Transfer(address indexed from, address indexed to, uint value);
-
-    // Returns the amount of tokens in existence
-    function totalSupply() external view returns (uint);
-
-    // Returns the amount of tokens owned by account
-    function balanceOf(address account) external view returns (uint);
-
-    // Returns the remaining number of tokens that spender will be allowed to spend on behalf of owner
-    // through transferFrom. This is zero by default
-    // This value changes when approve or transferFrom are called
-    function allowance(address owner, address spender) external view returns (uint);
-
-    // Sets amount as the allowance of spender over the caller’s tokens
-    // Returns a boolean value indicating whether the operation succeeded
-    // Emits an Approval event.
-    function approve(address spender, uint amount) external returns (bool);
-
-    // Moves amount tokens from the caller’s account to recipient
-    // Returns a boolean value indicating whether the operation succeeded
-    // Emits a Transfer event.
-    function transfer(address recipient, uint amount) external returns (bool);
-
-    // Moves amount tokens from sender to recipient using the allowance mechanism
-    // Amount is then deducted from the caller’s allowance
-    // Returns a boolean value indicating whether the operation succeeded
-    // Emits a Transfer event
-    function transferFrom(address sender, address recipient, uint amount) external returns (bool);
-}
+import "../interfaces/IERC20.sol";
 
 // Contracts
+
+/* solhint-disable func-order */
 
 /**
  * @author Balancer Labs
@@ -69,6 +31,7 @@ contract PCToken is IERC20 {
     mapping(address => mapping(address => uint)) private _allowance;
 
     string private _symbol;
+    string private _name;
 
     // Event declarations
 
@@ -82,8 +45,9 @@ contract PCToken is IERC20 {
      * @notice Base token constructor
      * @param tokenSymbol - the token symbol
      */
-    constructor (string memory tokenSymbol) public {
+    constructor (string memory tokenSymbol, string memory tokenName) public {
         _symbol = tokenSymbol;
+        _name = tokenName;
     }
 
     // External functions
@@ -115,11 +79,16 @@ contract PCToken is IERC20 {
      * @return bool - result of the approval (will always be true if it doesn't revert)
      */
     function approve(address spender, uint amount) external override returns (bool) {
-        // In addition to the increase/decreaseApproval functions, could
-        //   avoid the "approval race condition" by only allowing calls to approve
-        //   when the current approval amount is 0
-        //
-        // require(_allowance[msg.sender][spender] == 0, "ERR_RACE_CONDITION");
+        /* In addition to the increase/decreaseApproval functions, could
+           avoid the "approval race condition" by only allowing calls to approve
+           when the current approval amount is 0
+        
+           require(_allowance[msg.sender][spender] == 0, "ERR_RACE_CONDITION");
+
+           Some token contracts (e.g., KNC), already revert if you call approve 
+           on a non-zero allocation. To deal with these, we use the SafeApprove library
+           and safeApprove function when adding tokens to the pool.
+        */
 
         _allowance[msg.sender][spender] = amount;
 
@@ -222,9 +191,13 @@ contract PCToken is IERC20 {
 
     /**
      * @dev Returns the name of the token.
+     *      We allow the user to set this name (as well as the symbol).
+     *      Alternatives are 1) A fixed string (original design)
+     *                       2) A fixed string plus the user-defined symbol
+     *                          return string(abi.encodePacked(NAME, "-", _symbol));
      */
-    function name() external pure returns (string memory) {
-        return NAME;
+    function name() external view returns (string memory) {
+        return _name;
     }
 
     /**

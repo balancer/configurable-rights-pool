@@ -1,6 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity ^0.6.6;
+pragma solidity 0.6.12;
 
+
+// Imports
+
+import "./BalancerConstants.sol";
 
 /**
  * @author Balancer Labs
@@ -8,11 +12,6 @@ pragma solidity ^0.6.6;
  * @dev badd and bsub are basically identical to OpenZeppelin SafeMath; mul/div have extra checks
  */
 library BalancerSafeMath {
-
-    // State variables (must be constant in a library)
-
-    uint public constant BONE = 10**18;
-
     /**
      * @notice Safe addition
      * @param a - first operand
@@ -74,9 +73,9 @@ library BalancerSafeMath {
         require(c0 / a == b, "ERR_MUL_OVERFLOW");
 
         // Round to 0 if x*y < BONE/2?
-        uint c1 = c0 + (BONE / 2);
+        uint c1 = c0 + (BalancerConstants.BONE / 2);
         require(c1 >= c0, "ERR_MUL_OVERFLOW");
-        uint c2 = c1 / BONE;
+        uint c2 = c1 / BalancerConstants.BONE;
         return c2;
     }
 
@@ -95,8 +94,8 @@ library BalancerSafeMath {
             return 0;
         }
 
-        uint c0 = dividend * BONE;
-        require(c0 / dividend == BONE, "ERR_DIV_INTERNAL"); // bmul overflow
+        uint c0 = dividend * BalancerConstants.BONE;
+        require(c0 / dividend == BalancerConstants.BONE, "ERR_DIV_INTERNAL"); // bmul overflow
 
         uint c1 = c0 + (divisor / 2);
         require(c1 >= c0, "ERR_DIV_INTERNAL"); //  badd require

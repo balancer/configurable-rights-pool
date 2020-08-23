@@ -13,6 +13,8 @@ contract('updateWeightsGradually', async (accounts) => {
 
     const MAX = web3.utils.toTwosComplement(-1);
     const SYMBOL = 'BSP';
+    const NAME = 'Balancer Pool Token';
+
     const permissions = {
         canPauseSwapping: false,
         canChangeSwapFee: false,
@@ -20,6 +22,7 @@ contract('updateWeightsGradually', async (accounts) => {
         canAddRemoveTokens: true,
         canWhitelistLPs: false,
         canChangeCap: false,
+        canRemoveAllTokens: false,
     };
 
     describe('Factory (update gradually)', () => {
@@ -50,23 +53,24 @@ contract('updateWeightsGradually', async (accounts) => {
             await weth.mint(admin, toWei('100000000'));
             await xyz.mint(admin, toWei('100000000'));
 
+            const poolParams = {
+                tokenSymbol: SYMBOL,
+                tokenName: NAME,
+                tokens: [XYZ, WETH],
+                startBalances: startBalances,
+                startWeights: startWeights,
+                swapFee: 10 ** 15,
+            }
+    
             CONTROLLER = await factory.newCrp.call(
                 bfactory.address,
-                SYMBOL,
-                [XYZ, WETH],
-                startBalances,
-                startWeights,
-                10 ** 15, // swapFee
+                poolParams,
                 permissions,
             );
 
             await factory.newCrp(
                 bfactory.address,
-                SYMBOL,
-                [XYZ, WETH],
-                startBalances,
-                startWeights,
-                10 ** 15, // swapFee
+                poolParams,
                 permissions,
             );
 

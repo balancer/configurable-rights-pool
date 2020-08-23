@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity ^0.6.6;
+pragma solidity 0.6.12;
 
 // Needed to handle structures externally
 pragma experimental ABIEncoderV2;
@@ -43,52 +43,41 @@ contract ESPFactory {
      * @notice Create a new ESP
      * @dev emits a LogNewESP event
      * @param factoryAddress - the BFactory instance used to create the underlying pool
-     * @param tokens - initial set of tokens
-     * @param startBalances - initial balances (parallel array)
-     * @param startWeights - initial weights (parallal array)
-     * @param swapFee - initial swap fee
+     * @param poolParams - CRP pool parameters
      * @param rights - struct of permissions, configuring this CRP instance (see above for definitions)
      */
     function newEsp(
         address factoryAddress,
-        string calldata symbol,
-        address[] calldata tokens,
-        uint[] calldata startBalances,
-        uint[] calldata startWeights,
-        uint swapFee,
+        ConfigurableRightsPool.PoolParams calldata poolParams,
         RightsManager.Rights calldata rights
     )
         external
         returns (ElasticSupplyPool)
     {
-        require(tokens.length >= BalancerConstants.MIN_ASSET_LIMIT, "ERR_TOO_FEW_TOKENS");
+        require(poolParams.tokens.length >= BalancerConstants.MIN_ASSET_LIMIT, "ERR_TOO_FEW_TOKENS");
 
         // Arrays must be parallel
-        require(startBalances.length == tokens.length, "ERR_START_BALANCES_MISMATCH");
-        require(startWeights.length == tokens.length, "ERR_START_WEIGHTS_MISMATCH");
+        require(poolParams.startBalances.length == poolParams.tokens.length, "ERR_START_BALANCES_MISMATCH");
+        require(poolParams.startWeights.length == poolParams.tokens.length, "ERR_START_WEIGHTS_MISMATCH");
 
         ElasticSupplyPool esp = new ElasticSupplyPool(
             factoryAddress,
-            symbol,
-            tokens,
-            startBalances,
-            startWeights,
-            swapFee,
+            poolParams,
             rights
         );
 
+        emit LogNewEsp(msg.sender, address(esp));
+
         _isEsp[address(esp)] = true;
         esp.setController(msg.sender);
-
-        emit LogNewEsp(msg.sender, address(esp));
 
         return esp;
     }
 
     /**
-     * @notice Check to see if a given address is a CRP
+     * @notice Check to see if a given address is an ESP
      * @param addr - address to check
-     * @return boolean indicating whether it is a CRP
+     * @return boolean indicating whether it is an ESP
      */
     function isEsp(address addr) external view returns (bool) {
         return _isEsp[addr];

@@ -22,6 +22,8 @@ contract('crpPoolOverloadTests', async (accounts) => {
     const startWeights = [toWei('12'), toWei('1.5'), toWei('1.5')];
     const startBalances = [toWei('80000'), toWei('40'), toWei('10000')];
     const SYMBOL = 'BSP';
+    const NAME = 'Balancer Pool Token';
+
     const permissions = {
         canPauseSwapping: true,
         canChangeSwapFee: true,
@@ -29,6 +31,7 @@ contract('crpPoolOverloadTests', async (accounts) => {
         canAddRemoveTokens: true,
         canWhitelistLPs: false,
         canChangeCap: false,
+        canRemoveAllTokens: false,
     };
 
     let crpFactory;
@@ -62,23 +65,24 @@ contract('crpPoolOverloadTests', async (accounts) => {
         await dai.mint(admin, toWei('15000'));
         await xyz.mint(admin, toWei('100000'));
 
+        const poolParams = {
+            tokenSymbol: SYMBOL,
+            tokenName: NAME,
+            tokens: [XYZ, WETH, DAI],
+            startBalances: startBalances,
+            startWeights: startWeights,
+            swapFee: swapFee,
+        }
+
         CRPPOOL = await crpFactory.newCrp.call(
             bFactory.address,
-            SYMBOL,
-            [XYZ, WETH, DAI],
-            startBalances,
-            startWeights,
-            swapFee,
+            poolParams,
             permissions,
         );
 
         await crpFactory.newCrp(
             bFactory.address,
-            SYMBOL,
-            [XYZ, WETH, DAI],
-            startBalances,
-            startWeights,
-            swapFee,
+            poolParams,
             permissions,
         );
 

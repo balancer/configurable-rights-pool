@@ -58,6 +58,8 @@ contract('configurableWeights', async (accounts) => {
     const startBalances = [toWei('80000'), toWei('40'), toWei('10000')];
     const minimumWeightChangeBlockPeriod = 10;
     const SYMBOL = 'BSP';
+    const NAME = 'Balancer Pool Token';
+
     const permissions = {
         canPauseSwapping: false,
         canChangeSwapFee: false,
@@ -65,6 +67,7 @@ contract('configurableWeights', async (accounts) => {
         canAddRemoveTokens: false,
         canWhitelistLPs: false,
         canChangeCap: false,
+        canRemoveAllTokens: false,
     };
 
     let validEndBlock;
@@ -96,23 +99,24 @@ contract('configurableWeights', async (accounts) => {
 
             const tokenAddresses = [XYZ, WETH, DAI];
 
+            const poolParams = {
+                tokenSymbol: SYMBOL,
+                tokenName: NAME,
+                tokens: tokenAddresses,
+                startBalances: startBalances,
+                startWeights: startWeights,
+                swapFee: swapFee,
+            }
+    
             CRPPOOL = await crpFactory.newCrp.call(
                 bFactory.address,
-                SYMBOL,
-                tokenAddresses,
-                startBalances,
-                startWeights,
-                swapFee,
+                poolParams,
                 permissions,
             );
 
             await crpFactory.newCrp(
                 bFactory.address,
-                SYMBOL,
-                tokenAddresses,
-                startBalances,
-                startWeights,
-                swapFee,
+                poolParams,
                 permissions,
             );
 
@@ -268,23 +272,24 @@ contract('configurableWeights', async (accounts) => {
 
             const tokenAddresses = [XYZ, WETH, DAI];
 
+            const poolParams = {
+                tokenSymbol: SYMBOL,
+                tokenName: NAME,
+                tokens: tokenAddresses,
+                startBalances: startBalances,
+                startWeights: startWeights,
+                swapFee: swapFee,
+            }
+    
             CRPPOOL = await crpFactory.newCrp.call(
                 bFactory.address,
-                SYMBOL,
-                tokenAddresses,
-                startBalances,
-                startWeights,
-                swapFee,
+                poolParams,
                 permissions,
             );
 
             await crpFactory.newCrp(
                 bFactory.address,
-                SYMBOL,
-                tokenAddresses,
-                startBalances,
-                startWeights,
-                swapFee,
+                poolParams,
                 permissions,
             );
 

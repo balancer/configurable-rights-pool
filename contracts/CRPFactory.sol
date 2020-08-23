@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity ^0.6.6;
+pragma solidity 0.6.12;
 
 // Needed to handle structures externally
 pragma experimental ABIEncoderV2;
@@ -22,6 +22,8 @@ import "./ConfigurableRightsPool.sol";
  *      3: canAddRemoveTokens - can bind/unbind tokens (allowed by default in base pool)
  *      4: canWhitelistLPs - if set, only whitelisted addresses can join pools
  *                           (enables private pools with more than one LP)
+ *      5: canChangeCap - can change the BSP cap (max # of pool tokens)
+ *      6: canRemoveAllTokens - can remove all tokens (and potentially call createPool again)
  */
 contract CRPFactory {
     // State variables
@@ -40,57 +42,48 @@ contract CRPFactory {
     // Function declarations
 
     /**
+     * @notice Create a new CRP
+     * @dev emits a LogNewCRP event
+     * @param factoryAddress - the BFactory instance used to create the underlying pool
+     * @param poolParams - struct containing the names, tokens, weights, balances, and swap fee
+     * @param rights - struct of permissions, configuring this CRP instance (see above for definitions)
+     */
+    function newCrp(
+        address factoryAddress,
+        ConfigurableRightsPool.PoolParams calldata poolParams,
+        RightsManager.Rights calldata rights
+    )
+        external
+        returns (ConfigurableRightsPool)
+    {
+        require(poolParams.tokens.length >= BalancerConstants.MIN_ASSET_LIMIT, "ERR_TOO_FEW_TOKENS");
+
+        // Arrays must be parallel
+        require(poolParams.startBalances.length == poolParams.tokens.length, "ERR_START_BALANCES_MISMATCH");
+        require(poolParams.startWeights.length == poolParams.tokens.length, "ERR_START_WEIGHTS_MISMATCH");
+
+        ConfigurableRightsPool crp = new ConfigurableRightsPool(
+            factoryAddress,
+            poolParams,
+            rights
+        );
+
+        emit LogNewCrp(msg.sender, address(crp));
+
+        _isCrp[address(crp)] = true;
+        // The caller is the controller of the CRP
+        // The CRP will be the controller of the underlying Core BPool
+        crp.setController(msg.sender);
+
+        return crp;
+    }
+
+    /**
      * @notice Check to see if a given address is a CRP
      * @param addr - address to check
      * @return boolean indicating whether it is a CRP
      */
     function isCrp(address addr) external view returns (bool) {
         return _isCrp[addr];
-    }
-
-    /**
-     * @notice Create a new CRP
-     * @dev emits a LogNewCRP event
-     * @param factoryAddress - the BFactory instance used to create the underlying pool
-     * @param tokens - initial set of tokens
-     * @param startBalances - initial balances (parallel array)
-     * @param startWeights - initial weights (parallal array)
-     * @param swapFee - initial swap fee
-     * @param rights - struct of permissions, configuring this CRP instance (see above for definitions)
-     */
-    function newCrp(
-        address factoryAddress,
-        string calldata symbol,
-        address[] calldata tokens,
-        uint[] calldata startBalances,
-        uint[] calldata startWeights,
-        uint swapFee,
-        RightsManager.Rights calldata rights
-    )
-        external
-        returns (ConfigurableRightsPool)
-    {
-        require(tokens.length >= BalancerConstants.MIN_ASSET_LIMIT, "ERR_TOO_FEW_TOKENS");
-
-        // Arrays must be parallel
-        require(startBalances.length == tokens.length, "ERR_START_BALANCES_MISMATCH");
-        require(startWeights.length == tokens.length, "ERR_START_WEIGHTS_MISMATCH");
-
-        ConfigurableRightsPool crp = new ConfigurableRightsPool(
-            factoryAddress,
-            symbol,
-            tokens,
-            startBalances,
-            startWeights,
-            swapFee,
-            rights
-        );
-
-        _isCrp[address(crp)] = true;
-        crp.setController(msg.sender);
-
-        emit LogNewCrp(msg.sender, address(crp));
-
-        return crp;
     }
 }

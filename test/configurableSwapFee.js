@@ -32,6 +32,7 @@ contract('configurableSwapFee', async (accounts) => {
     const startWeights = [toWei('12'), toWei('1.5'), toWei('1.5')];
     const startBalances = [toWei('80000'), toWei('40'), toWei('10000')];
     const SYMBOL = 'BSP';
+    const NAME = 'Balancer Pool Token';
 
     // const permissions = [false, true, false, false];
     const permissions = {
@@ -41,6 +42,7 @@ contract('configurableSwapFee', async (accounts) => {
         canAddRemoveTokens: false,
         canWhitelistLPs: false,
         canChangeCap: false,
+        canRemoveAllTokens: false,
     };
 
     before(async () => {
@@ -64,23 +66,24 @@ contract('configurableSwapFee', async (accounts) => {
 
         const tokenAddresses = [XYZ, WETH, DAI];
 
+        const poolParams = {
+            tokenSymbol: SYMBOL,
+            tokenName: NAME,
+            tokens: tokenAddresses,
+            startBalances: startBalances,
+            startWeights: startWeights,
+            swapFee: swapFee,
+        }
+
         CRPPOOL = await crpFactory.newCrp.call(
             bFactory.address,
-            SYMBOL,
-            tokenAddresses,
-            startBalances,
-            startWeights,
-            swapFee,
+            poolParams,
             permissions,
         );
 
         await crpFactory.newCrp(
             bFactory.address,
-            SYMBOL,
-            tokenAddresses,
-            startBalances,
-            startWeights,
-            swapFee,
+            poolParams,
             permissions,
         );
 

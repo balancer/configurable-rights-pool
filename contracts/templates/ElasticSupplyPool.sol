@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity ^0.6.6;
+pragma solidity 0.6.12;
 
 // Needed to handle structures externally
 pragma experimental ABIEncoderV2;
@@ -22,7 +22,7 @@ import "../../libraries/SmartPoolManager.sol";
 /**
  * @author Balancer Labs
  * @title Smart Pool with customizable features, designed to hold tokens with Elastic Supply
- * @notice PCToken is the "Balancer Smart Pool" token (transferred upon finalization)
+ * @notice This is a subclass/extension of the Configurable Rights Pool
  * @dev Rights are defined as follows (index values into the array)
  *      0: canPauseSwapping - can setPublicSwap back to false after turning it on
  *                            by default, it is off on initialization and can only be turned on
@@ -31,6 +31,8 @@ import "../../libraries/SmartPoolManager.sol";
  *                            the base class methods of changing weights, which do transfer tokens, are disabled
  *      3: canAddRemoveTokens - can bind/unbind tokens (allowed by default in base pool)
  *      4: canWhitelistLPs - can restrict LPs to a whitelist
+ *      5: canChangeCap - can change the BSP cap (max # of pool tokens)
+ *      6: canRemoveAllTokens - can remove all tokens (and potentially call createPool again)
  *
  * Note that functions called on bPool may look like internal calls,
  *   but since they are contracts accessed through an interface, they are really external.
@@ -39,11 +41,6 @@ import "../../libraries/SmartPoolManager.sol";
  */
 contract ElasticSupplyPool is ConfigurableRightsPool {
     using BalancerSafeMath for uint;
-
-    // State variables
-
-    // Tokens allowed to be placed in the pool
-    mapping(address => bool) public validTokenWhitelist;
 
     // Event declarations
 
@@ -74,41 +71,20 @@ contract ElasticSupplyPool is ConfigurableRightsPool {
     /**
      * @notice Construct a new Configurable Rights Pool (wrapper around BPool)
      * @param factoryAddress - the BPoolFactory used to create the underlying pool
-     * @param tokenSymbolString - Token symbol (named thus to avoid shadowing)
-     * @param tokens - list of tokens to include
-     * @param startBalances - initial token balances
-     * @param startWeights - initial token weights
-     * @param swapFee - initial swap fee (will set on the core pool after pool creation)
-     * @param rights - Set of permissions we are assigning to this smart pool
-     *                 Would ideally not want to hard-code the length, but not sure how it interacts with structures
+     * @param poolParams - CRP pool parameters
+     * @param rightsParams - Set of permissions we are assigning to this smart pool
      */
     constructor(
         address factoryAddress,
-        string memory tokenSymbolString,
-        address[] memory tokens,
-        uint[] memory startBalances,
-        uint[] memory startWeights,
-        uint swapFee,
-        RightsManager.Rights memory rights
+        ConfigurableRightsPool.PoolParams memory poolParams,
+        RightsManager.Rights memory rightsParams
     )
+        // solhint-disable-next-line visibility-modifier-order
         public
-        ConfigurableRightsPool(factoryAddress, tokenSymbolString, tokens, startBalances, startWeights, swapFee, rights)
+        ConfigurableRightsPool(factoryAddress, poolParams, rightsParams)
+        // solhint-disable-next-line no-empty-blocks
     {
-        // Example whitelist of permitted tokens
-        address[3] memory elasticTokens = [address(0xD46bA6D942050d489DBd938a2C909A5d5039A161),  // AMPL
-                                           address(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48),  // USDC
-                                           address(0x6B175474E89094C44Da98b954EedeAC495271d0F)]; // DAI
-
-        // Initialize the public whitelist
-        for (uint i = 0; i < elasticTokens.length; i++) {
-            validTokenWhitelist[elasticTokens[i]] = true;
-        }
-
-        // Ensure the tokens provided are valid to be used in this kind of pool
-        /* Comment out in this template so tests will pass
-        for (uint i = 0; i < tokens.length; i++) {
-            require(validTokenWhitelist[tokens[i]], "ERR_TOKEN_NOT_SUPPORTED");
-        } */
+        // Nothing to do after initializing the base class
     }
 
     // External functions

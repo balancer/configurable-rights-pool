@@ -39,6 +39,7 @@ contract('Bankless Simulation', async (accounts) => {
     // 38 weight and 38 tokens is a coincidence
     const startBalances = [toWei(initialDaiDeposit), toWei('38')];
     const SYMBOL = 'BAP';
+    const NAME = 'Balancer Pool Token';
 
     const permissions = {
         canPauseSwapping: true,
@@ -47,6 +48,7 @@ contract('Bankless Simulation', async (accounts) => {
         canAddRemoveTokens: false,
         canWhitelistLPs: false,
         canChangeCap: true,
+        canRemoveAllTokens: false,
     };
 
     before(async () => {
@@ -70,23 +72,24 @@ contract('Bankless Simulation', async (accounts) => {
         // Initially 5% DAI / 95% BAP0
         const tokenAddresses = [DAI, BAP0];
 
+        const poolParams = {
+            tokenSymbol: SYMBOL,
+            tokenName: NAME,
+            tokens: tokenAddresses,
+            startBalances: startBalances,
+            startWeights: startWeights,
+            swapFee: swapFee,
+        }
+
         CRPPOOL = await crpFactory.newCrp.call(
             bFactory.address,
-            SYMBOL,
-            tokenAddresses,
-            startBalances,
-            startWeights,
-            swapFee,
+            poolParams,
             permissions,
         );
 
         await crpFactory.newCrp(
             bFactory.address,
-            SYMBOL,
-            tokenAddresses,
-            startBalances,
-            startWeights,
-            swapFee,
+            poolParams,
             permissions,
         );
 
@@ -108,7 +111,7 @@ contract('Bankless Simulation', async (accounts) => {
         let x;
         for (x = 0; x < permissions.length; x++) {
             const perm = await crpPool.hasPermission(x);
-            if (x == 3 || x == 4) {
+            if (x == 3 || x == 4 || x == 6) {
                 assert.isFalse(perm);
             }
             else {

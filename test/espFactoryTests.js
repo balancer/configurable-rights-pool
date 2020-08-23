@@ -29,6 +29,8 @@ contract('ESPFactory', async (accounts) => {
     const startBalances = [toWei('80000'), toWei('10000')];
     const SYMBOL = 'ESP';
     const LONG_SYMBOL = 'ESP012345678901234567890123456789';
+    const NAME = 'Balancer Pool Token';
+
     const permissions = {
         canPauseSwapping: false,
         canChangeSwapFee: true,
@@ -36,6 +38,7 @@ contract('ESPFactory', async (accounts) => {
         canAddRemoveTokens: true,
         canWhitelistLPs: false,
         canChangeCap: false,
+        canRemoveAllTokens: false,
     };
 
     before(async () => {
@@ -54,23 +57,24 @@ contract('ESPFactory', async (accounts) => {
         await usdc.mint(admin, toWei('100000'));
         await ampl.mint(admin, toWei('1000'));
 
+        const poolParams = {
+            tokenSymbol: SYMBOL,
+            tokenName: NAME,
+            tokens: [USDC, DAI],
+            startBalances: startBalances,
+            startWeights: startWeights,
+            swapFee: swapFee,
+        }
+
         ESPPOOL = await espFactory.newEsp.call(
             bFactory.address,
-            SYMBOL,
-            [USDC, DAI],
-            startBalances,
-            startWeights,
-            swapFee,
+            poolParams,
             permissions,
         );
 
         await espFactory.newEsp(
             bFactory.address,
-            SYMBOL,
-            [USDC, DAI],
-            startBalances,
-            startWeights,
-            swapFee,
+            poolParams,
             permissions,
         );
 
@@ -99,14 +103,19 @@ contract('ESPFactory', async (accounts) => {
     it('should be able to create with mismatched start Weights', async () => {
         const badStartWeights = [toWei('12'), toWei('1.5'), toWei('24')];
 
+        const poolParams = {
+            tokenSymbol: SYMBOL,
+            tokenName: NAME,
+            tokens: [USDC, DAI],
+            startBalances: startBalances,
+            startWeights: badStartWeights,
+            swapFee: swapFee,
+        }
+
         await truffleAssert.reverts(
             espFactory.newEsp(
                 bFactory.address,
-                SYMBOL,
-                [USDC, DAI],
-                startBalances,
-                badStartWeights,
-                10 ** 15,
+                poolParams,
                 permissions,
             ),
             'ERR_START_WEIGHTS_MISMATCH'
@@ -116,14 +125,19 @@ contract('ESPFactory', async (accounts) => {
     it('should not be able to create with mismatched start Balances', async () => {
         const badStartBalances = [toWei('80000'), toWei('40'), toWei('10000'), toWei('5000')];
 
+        const poolParams = {
+            tokenSymbol: SYMBOL,
+            tokenName: NAME,
+            tokens: [USDC, DAI],
+            startBalances: badStartBalances,
+            startWeights: startWeights,
+            swapFee: swapFee,
+        }
+
         await truffleAssert.reverts(
             espFactory.newEsp(
                 bFactory.address,
-                SYMBOL,
-                [USDC, DAI],
-                badStartBalances,
-                startWeights,
-                10 ** 15,
+                poolParams,
                 permissions,
             ),
             'ERR_START_BALANCES_MISMATCH'
@@ -131,26 +145,36 @@ contract('ESPFactory', async (accounts) => {
     });
 
     it('should be able to create with a long symbol', async () => {
+        const poolParams = {
+            tokenSymbol: LONG_SYMBOL,
+            tokenName: NAME,
+            tokens: [USDC, DAI],
+            startBalances: startBalances,
+            startWeights: startWeights,
+            swapFee: swapFee,
+        }
+
         espFactory.newEsp(
             bFactory.address,
-            LONG_SYMBOL,
-            [USDC, DAI],
-            startBalances,
-            startWeights,
-            10 ** 15,
+            poolParams,
             permissions,
         )
     });
 
     it('should not be able to create with zero fee', async () => {
+        const poolParams = {
+            tokenSymbol: SYMBOL,
+            tokenName: NAME,
+            tokens: [AMPL, USDC],
+            startBalances: startBalances,
+            startWeights: startWeights,
+            swapFee: 0,
+        }
+
         await truffleAssert.reverts(
             espFactory.newEsp(
                 bFactory.address,
-                SYMBOL,
-                [AMPL, USDC],
-                startBalances,
-                startWeights,
-                0,
+                poolParams,
                 permissions,
             ),
             'ERR_INVALID_SWAP_FEE'
@@ -160,14 +184,19 @@ contract('ESPFactory', async (accounts) => {
     it('should not be able to create with a fee above the MAX', async () => {
         const invalidSwapFee = '200000000000000000';
 
+        const poolParams = {
+            tokenSymbol: SYMBOL,
+            tokenName: NAME,
+            tokens: [AMPL, USDC],
+            startBalances: startBalances,
+            startWeights: startWeights,
+            swapFee: invalidSwapFee,
+        }
+
         await truffleAssert.reverts(
             espFactory.newEsp(
                 bFactory.address,
-                SYMBOL,
-                [AMPL, USDC],
-                startBalances,
-                startWeights,
-                invalidSwapFee,
+                poolParams,
                 permissions,
             ),
             'ERR_INVALID_SWAP_FEE'

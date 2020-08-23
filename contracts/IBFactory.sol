@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity ^0.6.6;
+pragma solidity 0.6.12;
 
 interface IBPool {
     function rebind(address token, uint balance, uint denorm) external;
@@ -15,6 +15,7 @@ interface IBPool {
     function isPublicSwap() external view returns (bool);
     function getDenormalizedWeight(address token) external view returns (uint);
     function getTotalDenormalizedWeight() external view returns (uint);
+    function getNumTokens() external view returns (uint);
     // solhint-disable-next-line func-name-mixedcase
     function EXIT_FEE() external view returns (uint);
  

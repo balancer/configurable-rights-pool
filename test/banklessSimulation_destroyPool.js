@@ -11,7 +11,7 @@ const { time } = require('@openzeppelin/test-helpers');
 const { calcInGivenOut, calcOutGivenIn, calcRelativeDiff } = require('../lib/calc_comparisons');
 const Decimal = require('decimal.js');
 
-contract('Bankless Simulation (using LP)', async (accounts) => {
+contract('Bankless Simulation (destroy pool)', async (accounts) => {
     const admin = accounts[0];
     const user1 = accounts[1];
     const user2 = accounts[2];
@@ -22,6 +22,7 @@ contract('Bankless Simulation (using LP)', async (accounts) => {
     const MaxBig256 = '115792089237316195423570985008687907853269984665640564039457.584007913129639935';
     const errorDelta = 10 ** -8;
     const numPoolTokens = '1000';
+    const addTokenTimeLockInBlocks = 10;
 
     let crpFactory; 
     let bFactory;
@@ -39,8 +40,10 @@ contract('Bankless Simulation (using LP)', async (accounts) => {
     const startWeights = [toWei('2'), toWei('38')];
     // 38 weight and 38 tokens is a coincidence
     const startBalances = [toWei(initialDaiDeposit), toWei('38')];
-    const SYMBOL = 'BAP';
+    const SYMBOL = 'BAPPT';
     const NAME = 'Bankless Apparel 0 BPT';
+
+    let tokenAddresses;
 
     const permissions = {
         canPauseSwapping: true,
@@ -62,6 +65,9 @@ contract('Bankless Simulation (using LP)', async (accounts) => {
         BAP0 = bap0.address;
         DAI = dai.address;
 
+        // Initially 5% DAI / 95% BAP0
+        tokenAddresses = [DAI, BAP0];
+
         // admin balances
         await bap0.mint(admin, toWei('38'));
         await dai.mint(admin, toWei('3000'));
@@ -69,9 +75,6 @@ contract('Bankless Simulation (using LP)', async (accounts) => {
         await dai.mint(user1, toWei('100000'));
         await dai.mint(user2, toWei('100000'));
         await dai.mint(user3, toWei('100000'));
-
-        // Initially 5% DAI / 95% BAP0
-        const tokenAddresses = [DAI, BAP0];
 
         const poolParams = {
             tokenSymbol: SYMBOL,
@@ -112,7 +115,7 @@ contract('Bankless Simulation (using LP)', async (accounts) => {
         let x;
         for (x = 0; x < permissions.length; x++) {
             const perm = await crpPool.hasPermission(x);
-            if (x == 3 || x == 5) {
+            if (x == 5) {
                 assert.isFalse(perm);
             }
             else {
@@ -326,79 +329,169 @@ contract('Bankless Simulation (using LP)', async (accounts) => {
         it('Controller should recover remaining tokens and proceeds', async () => {
             const bPoolAddr = await crpPool.bPool();
             const underlyingPool = await BPool.at(bPoolAddr);
-            let poolDaiBalance;
-            let poolShirtBalance;
-            let daiWithdrawal;
-            let shirtWithdrawal;
 
             // Prevent trading
             await crpPool.setPublicSwap(false);
-
-            await truffleAssert.reverts(
-                /* You might expect this to work - just redeem all the pool tokens and get the shirts/dai back
-                   Nope - there is no "we're done - everybody out of the pool" call
-                   It's designed for people to enter and leave continuously, so prices need to be
-                   well-defined at all times, so ratios need to be maintained, etc. 
-                   You can only withdraw 1/3 at a time - but you can do so iteratively */
-                crpPool.exitPool.call(toWei(numPoolTokens), [toWei(initialDaiDeposit), toWei('1.99')]),
-                'ERR_MIN_BALANCE',
-            );                
 
             poolDaiBalance = await dai.balanceOf.call(underlyingPool.address);
             console.log(`Final pool Dai balance: ${Decimal(fromWei(poolDaiBalance)).toFixed(2)}`);
             poolShirtBalance = await bap0.balanceOf.call(underlyingPool.address);
             console.log(`Final pool shirt balance: ${Decimal(fromWei(poolShirtBalance)).toFixed(4)}`);
 
-            let cnt = 0;
-            while (Decimal(fromWei(poolDaiBalance)) > 0.001 && Decimal(fromWei(poolShirtBalance)) > 0.001) {
-                daiWithdrawal = Math.floor(Decimal(fromWei(poolDaiBalance)).div(3.0) * 10000) / 10000;
-                console.log(`\nStep ${cnt + 1}: Dai withdrawal = ${daiWithdrawal}`);
-                shirtWithdrawal = Math.floor(Decimal(fromWei(poolShirtBalance)).div(3.0) * 10000) / 10000;
-                console.log(`Shirt withdrawal = ${shirtWithdrawal}`);
+            // Destroy the pool by simply removing both tokens
+            await crpPool.removeToken(BAP0);
+
+            // At this point we have an "invalid" 1-token "pool" - nothing should work
+            await truffleAssert.reverts(
+                underlyingPool.swapExactAmountOut(
+                    DAI, // tokenIn
+                    MAX, // maxAmountIn
+                    BAP0, // tokenOut
+                    toWei('1'), // tokenAmountOut
+                    MAX,
+                ),
+                'ERR_NOT_BOUND',
+            );    
     
-                // Withdraw as much as we can
-                await crpPool.exitswapExternAmountOut(DAI,
-                                                        toWei(daiWithdrawal.toString()),
-                                                        toWei(numPoolTokens));
-                await crpPool.exitswapExternAmountOut(BAP0,
-                                                        toWei(shirtWithdrawal.toString()),
-                                                        toWei(numPoolTokens));
+            await crpPool.removeToken(DAI);
 
-                poolDaiBalance = await dai.balanceOf.call(underlyingPool.address);
-                console.log(`Pool Dai balance: ${Decimal(fromWei(poolDaiBalance)).toFixed(2)}`);
-                poolShirtBalance = await bap0.balanceOf.call(underlyingPool.address);
-                console.log(`Pool shirt balance: ${Decimal(fromWei(poolShirtBalance)).toFixed(4)}`);
-                cnt++;
-
-                if (5 == cnt) {
-                    // Should not be able to join while it's being drained after the auction
-                    await truffleAssert.reverts(
-                        crpPool.joinswapPoolAmountOut.call(DAI, toWei('1'), MAX),
-                        'ERR_NOT_ON_WHITELIST',
-                    );
-
-                    // Should not be able to swap while it's being drained after the auction
-                    await truffleAssert.reverts(
-                            underlyingPool.swapExactAmountIn.call(
-                                DAI,
-                                toWei('10'), // tokenAmountIn
-                                BAP0,
-                                toWei('0'), // minAmountOut
-                                MAX),
-                            'ERR_SWAP_NOT_PUBLIC'
-                    );            
-                }
-            }
-            console.log(`Withdrew in ${cnt} steps`);
+            const numTokens = await underlyingPool.getNumTokens.call();
+            assert.equal(numTokens, 0);
 
             const adminDaiBalance = await dai.balanceOf.call(admin);
             console.log(`Final admin Dai balance: ${Decimal(fromWei(adminDaiBalance)).toFixed(2)}`);
             const adminShirtBalance = await bap0.balanceOf.call(admin);
             console.log(`Final admin shirt balance: ${Decimal(fromWei(adminShirtBalance)).toFixed(4)}`);
 
-            assert.isAtLeast(parseFloat(fromWei(adminDaiBalance)), parseInt(initialDaiDeposit));
-            assert.isAtLeast(parseFloat(fromWei(adminShirtBalance)), 1.99);
-            assert.isAtMost(parseFloat(fromWei(adminShirtBalance)), 2);
+            // Make sure they recovered all assets
+            assert.equal(poolDaiBalance - adminDaiBalance, 0);
+            assert.equal(poolShirtBalance - adminShirtBalance, 0);
+        });
+
+        it('Should allow creating another pool', async () => {
+            await bap0.mint(admin, toWei('36'));
+            await crpPool.createPool(toWei(numPoolTokens));
+        });
+
+        it('Should be able to poke weights (and buy shirts)', async () => {
+            let weightBap0;
+            let weightDai;
+
+            blockRange = 50;
+            // get current block number
+            let block = await web3.eth.getBlock('latest');
+            console.log(`Block of updateWeightsGradually() call: ${block.number}`);
+            startBlock = block.number + 10;
+            const endBlock = startBlock + blockRange;
+            const endWeights = [toWei('34'), toWei('6')];
+            console.log(`Start block for Dai -> Bap0 flipping: ${startBlock}`);
+            console.log(`End   block for Dai -> Bap0 flipping: ${endBlock}`);
+
+            await crpPool.updateWeightsGradually(endWeights, startBlock, endBlock);
+
+            block = await web3.eth.getBlock('latest');
+            console.log(`Block: ${block.number}`);                        
+            while (block.number < startBlock) {
+                // Wait for the start block
+                block = await web3.eth.getBlock('latest');
+                console.log(`Still waiting. Block: ${block.number}`);
+                await time.advanceBlock();
+            }
+
+            const bPoolAddr = await crpPool.bPool();
+            const underlyingPool = await BPool.at(bPoolAddr);
+            let tokenAmountIn;
+            let spotPriceAfter;
+
+            await dai.approve(underlyingPool.address, MAX, { from: user1 });
+            await bap0.approve(underlyingPool.address, MAX, { from: user1 });
+            await dai.approve(underlyingPool.address, MAX, { from: user2 });
+            await dai.approve(underlyingPool.address, MAX, { from: user3 });
+
+            const users = [user1, user2, user3];
+            let userIdx = 0;
+            let user;
+
+            let shirtsLeft = true;
+
+            while (shirtsLeft) {
+                weightBap0 = await crpPool.getDenormalizedWeight(BAP0);
+                weightDai = await crpPool.getDenormalizedWeight(DAI);
+                block = await web3.eth.getBlock("latest");
+                console.log('\nBlock: ' + block.number + '. Weights -> BAP0: ' +
+                    (weightBap0*2.5/10**18).toString() + '%\tDAI: ' +
+                    (weightDai*2.5/10**18).toString() + '%');
+
+                const tokenInBalance = await dai.balanceOf.call(underlyingPool.address);
+                const tokenInWeight = await underlyingPool.getDenormalizedWeight(DAI);
+                const tokenOutBalance = await bap0.balanceOf.call(underlyingPool.address);
+                const tokenOutWeight = await underlyingPool.getDenormalizedWeight(BAP0);
+
+                // Rotate users
+                user = users[userIdx];
+                
+                const daiBalance = await dai.balanceOf.call(user);
+                const bap0Balance = await bap0.balanceOf.call(user);
+                console.log(`User ${userIdx + 1} has ${Math.round(fromWei(daiBalance))} Dai and ${fromWei(bap0Balance)} shirts.`);
+                console.log(`Pool has ${fromWei(tokenOutBalance)} shirts / ${Math.round(fromWei(tokenInBalance))} Dai left`);
+
+                if (3 == ++userIdx) {
+                    userIdx = 0;
+                }
+
+                const bap0SpotPrice = await underlyingPool.getSpotPrice(DAI, BAP0);
+                console.log(`Spot price of 1 BAP0 = ${Decimal(fromWei(bap0SpotPrice)).toFixed(4)}`);
+                let amountOut = '1';
+
+                if (2 == userIdx) {
+                    // Shenanigans - partial shirt purchases
+                    amountOut = '0.5';
+                }
+                const expectedTotalIn = calcInGivenOut(
+                    fromWei(tokenInBalance),
+                    fromWei(tokenInWeight),
+                    fromWei(tokenOutBalance),
+                    fromWei(tokenOutWeight),
+                    amountOut, // we want one BAP0 token out
+                    fromWei(minSwapFee),
+                );
+        
+                // user buys a shirt
+                // Static call (no transaction yet), so that I can get the return values
+                const swapResult = await underlyingPool.swapExactAmountOut.call(
+                    DAI, // tokenIn
+                    MAX, // maxAmountIn
+                    BAP0, // tokenOut
+                    toWei(amountOut), // tokenAmountOut
+                    MAX, // maxPrice
+                    { from: user },
+                );
+
+                tokenAmountIn = swapResult[0];
+                spotPriceAfter = swapResult[1];
+
+                console.log(`Actual cost: ${Decimal(fromWei(tokenAmountIn)).toFixed(2)}; spot price after is ${Decimal(fromWei(spotPriceAfter)).toFixed(2)}`);
+
+                const relDiff = calcRelativeDiff(expectedTotalIn, fromWei(tokenAmountIn));
+                assert.isAtMost(relDiff.toNumber(), errorDelta);
+
+                // Now actually do the transaction, so that it performs the swap
+                await underlyingPool.swapExactAmountOut(
+                    DAI, // tokenIn
+                    MAX, // maxAmountIn
+                    BAP0, // tokenOut
+                    toWei(amountOut), // tokenAmountOut
+                    MAX, // maxPrice
+                    { from: user },
+                );
+                
+                await crpPool.pokeWeights();
+                
+                const finalShirtBalance = await bap0.balanceOf.call(underlyingPool.address);
+
+                // Don't have to go all the way down to 2
+                shirtsLeft = fromWei(finalShirtBalance) > 20;
+            }
         });
     });
 });

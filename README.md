@@ -2,7 +2,7 @@
 
 <em style="color:orange">WARNING: this code has not been fully audited. Sam Sun has done a one day review, but a longer audit will take place later in August 2020. The code as it stands today is meant to be used for testing/development purposes only. DO NOT add significant amounts of funds to smart pools using this repo before the proper audit takes place.</em>
 
-This is a smart pool factory that allows anyone to deploy smart pools with (in the reference implementation) five 
+This is a smart pool factory that allows anyone to deploy smart pools with (in the reference implementation) seven 
 different rights that can be individually chosen:
 
 1) canPauseSwapping: pool creator can pause swaps (base pools can turn swapping on, but not off)
@@ -10,6 +10,8 @@ different rights that can be individually chosen:
 3) canChangeWeights: pool creator can change weights, either individually, or following a plan for gradual updates
 4) canAddRemoveTokens: pool creator can add/remove tokens (subject to the base pool limits)
 5) canWhitelistLPs: pool creator can specify a list of addresses allowed to add/remove liquidity
+6) canChangeCap: pool creator can change the BSP cap (max # of pool tokens)
+7) canRemoveAllTokens: pool creator can remove all tokens from a pool (and potentially call createPool again)
 
 ### CRPFactory.sol
 
@@ -21,38 +23,45 @@ Creates new ConfigurableRightsPools with the caller as the contract controller.
 
 ##### Params
 * `address factoryAddress` - BFactory address.
-* `string symbol` - The symbol used for the pool token.
+* `PoolParams poolParams` - Structure holding the main parameters that define this pool
+* `RightsManager.Rights rights` - Structure defined in an external linked library, with boolean flags for each right
+
+
+##### Pool Params structure
+* `string tokenSymbol` - Symbol of the Balancer Pool Token representing this pool
+* `string tokenName` - Name of the Balancer Pool Token representing this pool
 * `address[] tokens` - Array of 2-8 token addresses. The pool will hold these.
 * `uint256[] startBalances` - Array of initial balances for the tokens specified above.
 * `uint256[] startWeights` - Array of initial weights for the tokens specified above.
 * `uint swapFee` - Initial swap fee for the pool (subject to min/max limits)
-* `RightsManager.Rights rights` - Structure defined in an external linked library, with boolean flags for each right
 
-##### Response
-```
-Returns address of the new ConfigurableRightsPool.
-```
 ##### Example Code
 
 Note that the weights are "denormalized" values, from 1 to 50 (really 49, as there must be at least two tokens, and the sum must be <= 50>). <br>The denormalized weight of a token is half of its proportional weight (as a percentage). <br>So, a 98% / 2% pool's tokens would have denormalized weights of 49 and 1.
 
 ```javascript
 const permissions = {
-    canPauseSwapping: false,
+    canPauseSwapping: true,
     canChangeSwapFee: true,
-    canChangeWeights: false,
+    canChangeWeights: true,
     canAddRemoveTokens: false,
     canWhitelistLPs: false,
+    canChangeCap: false,
+    canRemoveAllTokens: false,
+};
+
+const poolParams = {
+    tokenSymbol: 'BPT',
+    tokenName: 'BTP Example Name',
+    tokens: [XYZ, WETH, DAI], // contract addresses
+    startBalances: [toWei('80000'), toWei('40'), toWei('10000')],
+    startWeights: [toWei('12'), toWei('1.5'), toWei('1.5')],
+    swapFee: toWei('0.003'), // 0.3%
 };
 
 await crpFactory.newCrp(
     bfactory.address,
-    [XYZ, WETH, DAI],
-    [toWei('80000'), toWei('40'), toWei('10000')],
-    [toWei('12'), toWei('1.5'), toWei('1.5')],
-    toWei('0.003'),
-    10,
-    10,
+    poolParams,
     permissions
 );
 ```
@@ -110,6 +119,10 @@ Removes an existing token and returns the balance to the controller.
 
 Add an address, after which this address can join a pool. (Initially, no one can add liquidity, including the controller)
 
+`removeWhitelistedLiquidityProvider(address provider)`
+
+Remove an address, after which this address can no longer join a pool. (Has no effect on existing LPs.)
+
 > Creating a pool from the Factory
 
 `createPool(uint initialSupply)`
@@ -137,7 +150,8 @@ There are additional variations for specifying exact amounts (Uniswap-style)
 
 ### PCToken.sol
 
-Balancer Smart Pool token. A standard ERC-20 with some extra math functions. Note that the math is normalized such that "1" is 10^18
+Balancer Smart Pool token. A standard ERC-20 with some extra math functions. Note that the math is normalized such that "1" is 10^18. These tokens have 18 decimals, and a configurable token symbol. (The token name is composed at run time from
+a fixed prefix and the symbol.)
 
 ### IBFactory.sol
 
@@ -146,6 +160,8 @@ Interface for the [Balancer Factory](https://github.com/balancer-labs/balancer-c
 ## NOTE
 
 You cannot exit 100% using Pool Tokens (rebind will revert). It is possible to do using unbind with special permissions, but the trade-off is a potential loss of security.
+
+Specifically, if a CRP has the canRemoveAllTokens permission, it is possible to call removeToken for every token in the pool, and recover all assets without loss. (Otherwise, with only canAddRemoveTokens permission, the pool would always need to contain at least two tokens, and you could only "withdraw" 1/3 of the balance at a time through the exit methods.) There are special cases where this is appropriate (e.g., an "auction," where only the controller provides liquidity), but any pools with either "removeToken" right enabled require a high level of trust, since the controller could remove all assets from the pool at any time.
 
 ## Balancer Pool Templates
 

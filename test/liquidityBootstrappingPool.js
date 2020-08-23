@@ -18,6 +18,7 @@ contract('Liquidity Bootstrapping', async (accounts) => {
 
     const MAX = web3.utils.toTwosComplement(-1);
     const SYMBOL = 'LBP';
+    const NAME = 'Balancer Pool Token';
 
     const permissions = {
         canPauseSwapping: false,
@@ -26,11 +27,12 @@ contract('Liquidity Bootstrapping', async (accounts) => {
         canAddRemoveTokens: false,
         canWhitelistLPs: false,
         canChangeCap: false,
+        canRemoveAllTokens: false,
     };
 
     describe('Factory_LBP (linear)', () => {
-        let bfactory;
-        let factory;
+        let bFactory;
+        let crpFactory;
         let controller;
         let CONTROLLER;
         let XYZ;
@@ -69,8 +71,8 @@ contract('Liquidity Bootstrapping', async (accounts) => {
         let blockRange;
 
         before(async () => {
-            bfactory = await BFactory.deployed();
-            factory = await CRPFactory.deployed();
+            bFactory = await BFactory.deployed();
+            crpFactory = await CRPFactory.deployed();
             xyz = await TToken.new('XYZ', 'Example Project Token', 18);
             dai = await TToken.new('Dai Stablecoin', 'DAI', 18);
  
@@ -83,23 +85,24 @@ contract('Liquidity Bootstrapping', async (accounts) => {
             await dai.mint(admin, toWei('10000'));
             await xyz.mint(admin, toWei('40000'));
  
-            CONTROLLER = await factory.newCrp.call(
-                bfactory.address,
-                SYMBOL,
-                [XYZ, DAI],
-                startBalances,
-                startWeights,
-                swapFee,
+            const poolParams = {
+                tokenSymbol: SYMBOL,
+                tokenName: NAME,
+                tokens: [XYZ, DAI],
+                startBalances: startBalances,
+                startWeights: startWeights,
+                swapFee: swapFee,
+            }
+    
+            CONTROLLER = await crpFactory.newCrp.call(
+                bFactory.address,
+                poolParams,
                 permissions,
             );
 
-            await factory.newCrp(
-                bfactory.address,
-                SYMBOL,
-                [XYZ, DAI],
-                startBalances,
-                startWeights,
-                swapFee,
+            await crpFactory.newCrp(
+                bFactory.address,
+                poolParams,
                 permissions,
             );
 
@@ -174,8 +177,6 @@ contract('Liquidity Bootstrapping', async (accounts) => {
        out.
     */
     describe('Factory_LBP (nonlinear)', () => {
-        let bfactory;
-        let factory;
         let controller;
         let CONTROLLER;
         let XYZ;
@@ -188,8 +189,8 @@ contract('Liquidity Bootstrapping', async (accounts) => {
         const swapFee = 10**15;
 
         before(async () => {
-            bfactory = await BFactory.deployed();
-            factory = await CRPFactory.deployed();
+            bFactory = await BFactory.deployed();
+            crpFactory = await CRPFactory.deployed();
             xyz = await TToken.new('XYZ', 'Example Project Token', 18);
             dai = await TToken.new('Dai Stablecoin', 'DAI', 18);
  
@@ -201,24 +202,25 @@ contract('Liquidity Bootstrapping', async (accounts) => {
             // Changing weights pushes/pulls tokens as necessary to keep the prices stable
             await dai.mint(admin, toWei('10000'));
             await xyz.mint(admin, toWei('40000'));
- 
-            CONTROLLER = await factory.newCrp.call(
-                bfactory.address,
-                SYMBOL,
-                [XYZ, DAI],
-                startBalances,
-                startWeights,
-                swapFee,
+
+            const poolParams = {
+                tokenSymbol: SYMBOL,
+                tokenName: NAME,
+                tokens: [XYZ, DAI],
+                startBalances: startBalances,
+                startWeights: startWeights,
+                swapFee: swapFee,
+            }
+
+            CONTROLLER = await crpFactory.newCrp.call(
+                bFactory.address,
+                poolParams,
                 permissions,
             );
 
-            await factory.newCrp(
-                bfactory.address,
-                SYMBOL,
-                [XYZ, DAI],
-                startBalances,
-                startWeights,
-                swapFee,
+            await crpFactory.newCrp(
+                bFactory.address,
+                poolParams,
                 permissions,
             );
 

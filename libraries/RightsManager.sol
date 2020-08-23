@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity ^0.6.6;
+pragma solidity 0.6.12;
 
 // Needed to handle structures externally
 pragma experimental ABIEncoderV2;
@@ -12,7 +12,10 @@ pragma experimental ABIEncoderV2;
  *      canChangeSwapFee - can setSwapFee after initialization (by default, it is fixed at create time)
  *      canChangeWeights - can bind new token weights (allowed by default in base pool)
  *      canAddRemoveTokens - can bind/unbind tokens (allowed by default in base pool)
+ *      canWhitelistLPs - can limit liquidity providers to a given set of addresses
  *      canChangeCap - can change the BSP cap (max # of pool tokens)
+ *      canRemoveAllTokens - can remove all tokens; this allows destroying/recreating the pool
+ *                           (with the same parameters)
  */
 library RightsManager {
 
@@ -23,7 +26,8 @@ library RightsManager {
                        CHANGE_WEIGHTS,
                        ADD_REMOVE_TOKENS,
                        WHITELIST_LPS,
-                       CHANGE_CAP }
+                       CHANGE_CAP,
+                       REMOVE_ALL_TOKENS }
 
     struct Rights {
         bool canPauseSwapping;
@@ -32,6 +36,7 @@ library RightsManager {
         bool canAddRemoveTokens;
         bool canWhitelistLPs;
         bool canChangeCap;
+        bool canRemoveAllTokens;
     }
 
     // State variables (can only be constants in a library)
@@ -41,6 +46,7 @@ library RightsManager {
     bool public constant DEFAULT_CAN_ADD_REMOVE_TOKENS = false;
     bool public constant DEFAULT_CAN_WHITELIST_LPS = false;
     bool public constant DEFAULT_CAN_CHANGE_CAP = false;
+    bool public constant DEFAULT_CAN_REMOVE_ALL_TOKENS = false;
 
     // Functions
 
@@ -57,10 +63,11 @@ library RightsManager {
                           DEFAULT_CAN_CHANGE_WEIGHTS,
                           DEFAULT_CAN_ADD_REMOVE_TOKENS,
                           DEFAULT_CAN_WHITELIST_LPS,
-                          DEFAULT_CAN_CHANGE_CAP);
+                          DEFAULT_CAN_CHANGE_CAP,
+                          DEFAULT_CAN_REMOVE_ALL_TOKENS);
         }
         else {
-            return Rights(a[0], a[1], a[2], a[3], a[4], a[5]);
+            return Rights(a[0], a[1], a[2], a[3], a[4], a[5], a[6]);
         }
     }
 
@@ -71,7 +78,7 @@ library RightsManager {
      * @return boolean array containing the rights settings
      */
     function convertRights(Rights calldata rights) external pure returns (bool[] memory) {
-        bool[] memory result = new bool[](6);
+        bool[] memory result = new bool[](7);
 
         result[0] = rights.canPauseSwapping;
         result[1] = rights.canChangeSwapFee;
@@ -79,6 +86,7 @@ library RightsManager {
         result[3] = rights.canAddRemoveTokens;
         result[4] = rights.canWhitelistLPs;
         result[5] = rights.canChangeCap;
+        result[6] = rights.canRemoveAllTokens;
 
         return result;
     }
@@ -110,6 +118,9 @@ library RightsManager {
         }
         else if (Permissions.CHANGE_CAP == permission) {
             return self.canChangeCap;
+        }
+        else if (Permissions.REMOVE_ALL_TOKENS == permission) {
+            return self.canRemoveAllTokens;
         }
     }
 
