@@ -48,7 +48,6 @@ contract('Bankless Simulation', async (accounts) => {
         canAddRemoveTokens: false,
         canWhitelistLPs: false,
         canChangeCap: true,
-        canRemoveAllTokens: false,
     };
 
     before(async () => {

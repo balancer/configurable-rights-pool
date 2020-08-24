@@ -49,10 +49,9 @@ contract('Bankless Simulation (destroy pool)', async (accounts) => {
         canPauseSwapping: true,
         canChangeSwapFee: true,
         canChangeWeights: true,
-        canAddRemoveTokens: false,
+        canAddRemoveTokens: true,
         canWhitelistLPs: true,
         canChangeCap: false,
-        canRemoveAllTokens: true,
     };
 
     before(async () => {
@@ -368,6 +367,7 @@ contract('Bankless Simulation (destroy pool)', async (accounts) => {
             assert.equal(poolShirtBalance - adminShirtBalance, 0);
         });
 
+        /* Disallow this for now
         it('Should allow creating another pool', async () => {
             await bap0.mint(admin, toWei('36'));
             await crpPool.createPool(toWei(numPoolTokens));
@@ -492,6 +492,6 @@ contract('Bankless Simulation (destroy pool)', async (accounts) => {
                 // Don't have to go all the way down to 2
                 shirtsLeft = fromWei(finalShirtBalance) > 20;
             }
-        });
+        }); */
     });
 });

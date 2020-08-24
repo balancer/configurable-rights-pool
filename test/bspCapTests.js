@@ -44,7 +44,6 @@ contract('BSP Cap', async (accounts) => {
         canAddRemoveTokens: false,
         canWhitelistLPs: false,
         canChangeCap: true,
-        canRemoveAllTokens: false,
     };
 
     before(async () => {

@@ -23,7 +23,6 @@ import "./ConfigurableRightsPool.sol";
  *      4: canWhitelistLPs - if set, only whitelisted addresses can join pools
  *                           (enables private pools with more than one LP)
  *      5: canChangeCap - can change the BSP cap (max # of pool tokens)
- *      6: canRemoveAllTokens - can remove all tokens (and potentially call createPool again)
  */
 contract CRPFactory {
     // State variables

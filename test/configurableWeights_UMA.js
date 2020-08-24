@@ -22,7 +22,6 @@ contract('configurableWeightsUMA', async (accounts) => {
         canAddRemoveTokens: true,
         canWhitelistLPs: false,
         canChangeCap: false,
-        canRemoveAllTokens: false,
     };
 
     describe('Factory_UMA', () => {

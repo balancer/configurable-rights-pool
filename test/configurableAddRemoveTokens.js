@@ -46,7 +46,6 @@ contract('configurableAddRemoveTokens', async (accounts) => {
         canAddRemoveTokens: true,
         canWhitelistLPs: false,
         canChangeCap: false,
-        canRemoveAllTokens: false,
     };
 
     before(async () => {
@@ -339,20 +338,9 @@ contract('configurableAddRemoveTokens', async (accounts) => {
         assert.equal(abcWeight, toWei('1.5'));
     });
 
-    it('Should not be able to remove too many tokens', async () => {
+    it('Should be able to remove a token', async () => {
         // It now has ABC, XYZ, and WETH
-        // If we remove ABC, it's down to two tokens - should not be able to remove those
         await crpPool.removeToken(ABC);
-
-        await truffleAssert.reverts(
-            crpPool.removeToken(WETH),
-            'ERR_TOO_FEW_TOKENS',
-        );
-
-        await truffleAssert.reverts(
-            crpPool.removeToken(XYZ),
-            'ERR_TOO_FEW_TOKENS',
-        );
     });
 
     it('Set public swap should revert because non-permissioned', async () => {

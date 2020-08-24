@@ -31,7 +31,6 @@ contract('crpPoolOverloadTests', async (accounts) => {
         canAddRemoveTokens: true,
         canWhitelistLPs: false,
         canChangeCap: false,
-        canRemoveAllTokens: false,
     };
 
     let crpFactory;

@@ -39,7 +39,6 @@ contract('configurableLPNoWhitelist', async (accounts) => {
         canAddRemoveTokens: false,
         canWhitelistLPs: false,
         canChangeCap: false,
-        canRemoveAllTokens: false,
     };
 
     before(async () => {

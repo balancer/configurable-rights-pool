@@ -15,7 +15,6 @@ interface IBPool {
     function isPublicSwap() external view returns (bool);
     function getDenormalizedWeight(address token) external view returns (uint);
     function getTotalDenormalizedWeight() external view returns (uint);
-    function getNumTokens() external view returns (uint);
     // solhint-disable-next-line func-name-mixedcase
     function EXIT_FEE() external view returns (uint);
  

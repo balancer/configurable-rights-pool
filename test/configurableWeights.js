@@ -67,7 +67,6 @@ contract('configurableWeights', async (accounts) => {
         canAddRemoveTokens: false,
         canWhitelistLPs: false,
         canChangeCap: false,
-        canRemoveAllTokens: false,
     };
 
     let validEndBlock;

@@ -27,7 +27,6 @@ contract('Liquidity Bootstrapping', async (accounts) => {
         canAddRemoveTokens: false,
         canWhitelistLPs: false,
         canChangeCap: false,
-        canRemoveAllTokens: false,
     };
 
     describe('Factory_LBP (linear)', () => {

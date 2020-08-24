@@ -22,7 +22,6 @@ contract('updateWeightsGradually', async (accounts) => {
         canAddRemoveTokens: true,
         canWhitelistLPs: false,
         canChangeCap: false,
-        canRemoveAllTokens: false,
     };
 
     describe('Factory (update gradually)', () => {

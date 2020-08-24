@@ -32,7 +32,6 @@ import "../libraries/SafeApprove.sol";
  *      3: canAddRemoveTokens - can bind/unbind tokens (allowed by default in base pool)
  *      4: canWhitelistLPs - can restrict LPs to a whitelist
  *      5: canChangeCap - can change the BSP cap (max # of pool tokens)
- *      6: canRemoveAllTokens - can remove all tokens (and potentially call createPool again)
  *
  * Note that functions called on bPool and bFactory may look like internal calls,
  *   but since they are contracts accessed through an interface, they are really external.
@@ -324,11 +323,6 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
      *      values, the block time arguments are not needed, and you can just call the single-argument
      *      createPool()
      * 
-     *      The block time parameters are immutable after createPool. If the canRemoveAllTokens permission
-     *      is set, all tokens are removed, and createPool is called again, these values could be 
-     *      different for the new pool. Since the required trust level is very high for such a pool anyway, 
-     *      this should be a minor concern.
-     *
      *      NB:
      *      Code is duplicated in the overloaded createPool! If you change one, change the other!
      *      Unfortunately I cannot call this.createPool(initialSupply) from the overloaded one,
@@ -400,17 +394,12 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
             bPool.bind(t, bal, denorm);
         }
 
-        /* Destroy local storage token list to prevent use of it after createPool
-           Hereafter, the token list is maintained by the underlying pool
-           Special case - if canRemoveAllTokens is set, the controller can remove
-           all tokens, then call createPool again. In that case, we need the original
-           copy of _tokens to recreate the underlying pool */
-        if (!rights.canRemoveAllTokens) {
-            while (_tokens.length > 0) {
-                // Modifying state variable after external calls here,
-                // but not essential, so not dangerous
-                _tokens.pop();
-            }
+        // If we wanted to re-enable createPool() after removing all tokens,
+        //   would have to keep the local _tokens array around
+        while (_tokens.length > 0) {
+            // Modifying state variable after external calls here,
+            // but not essential, so not dangerous
+            _tokens.pop();
         }
 
         // Set fee to the initial value set in the constructor
@@ -476,17 +465,12 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
             bPool.bind(t, bal, denorm);
         }
 
-        /* Destroy local storage token list to prevent use of it after createPool
-           Hereafter, the token list is maintained by the underlying pool
-           Special case - if canRemoveAllTokens is set, the controller can remove
-           all tokens, then call createPool again. In that case, we need the original
-           copy of _tokens to recreate the underlying pool */
-        if (!rights.canRemoveAllTokens) {
-            while (_tokens.length > 0) {
-                // Modifying state variable after external calls here,
-                // but not essential, so not dangerous
-                _tokens.pop();
-            }
+        // If we wanted to re-enable createPool() after removing all tokens,
+        //   would have to keep the local _tokens array around
+        while (_tokens.length > 0) {
+            // Modifying state variable after external calls here,
+            // but not essential, so not dangerous
+            _tokens.pop();
         }
 
         /* Do "finalize" things, but can't call bPool.finalize(), or it wouldn't let us rebind or do any
@@ -686,28 +670,23 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
         needsBPool
     {
         // It's possible to have remove rights without having add rights
-        require(rights.canAddRemoveTokens || rights.canRemoveAllTokens, 
-                "ERR_CANNOT_ADD_REMOVE_TOKENS");
+        require(rights.canAddRemoveTokens,"ERR_CANNOT_ADD_REMOVE_TOKENS");
         // After createPool, token list is maintained in the underlying BPool
-
-        // Check the MIN_ASSET_LIMIT, unless canRemoveAllTokens is set to enable
-        //   removing all assets
-        uint numTokens = bPool.getNumTokens();
-        require(numTokens > BalancerConstants.MIN_ASSET_LIMIT || rights.canRemoveAllTokens,
-                "ERR_TOO_FEW_TOKENS");
         require(!_newToken.isCommitted, "ERR_REMOVE_WITH_ADD_PENDING");
-
-        // If we are about to delete the last token, abandon old pool
+  
+        // If we are about to delete the last token, the old pool is non-functional
         //   (with 0 total denorm, can't add or do anything with it)
-        // Change state variable here (before external call) to avoid re-entrancy
+        /* If we wanted to re-enable createPool, could do this
+           (would also have to preserve the local _tokens array)
+        uint numTokens = bPool.getNumTokens();
         IBPool underlyingPool = bPool;
 
         if (numTokens == 1) {
             bPool = IBPool(0);
-        }
+        }*/
 
         // Delegate to library to save space
-        SmartPoolManager.removeToken(this, underlyingPool, token);
+        SmartPoolManager.removeToken(this, bPool, token);
     } 
 
     /**
@@ -718,7 +697,7 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
      * @param maxAmountsIn - Max amount of asset tokens to spend
      */
     function joinPool(uint poolAmountOut, uint[] calldata maxAmountsIn)
-         external
+        external
         logs
         lock
         needsBPool

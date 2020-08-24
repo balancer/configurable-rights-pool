@@ -32,7 +32,6 @@ import "../../libraries/SmartPoolManager.sol";
  *      3: canAddRemoveTokens - can bind/unbind tokens (allowed by default in base pool)
  *      4: canWhitelistLPs - can restrict LPs to a whitelist
  *      5: canChangeCap - can change the BSP cap (max # of pool tokens)
- *      6: canRemoveAllTokens - can remove all tokens (and potentially call createPool again)
  *
  * Note that functions called on bPool may look like internal calls,
  *   but since they are contracts accessed through an interface, they are really external.

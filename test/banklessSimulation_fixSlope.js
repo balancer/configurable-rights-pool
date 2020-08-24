@@ -46,7 +46,6 @@ contract('Bankless Simulation (mid-stream adjustment)', async (accounts) => {
         canAddRemoveTokens: false,
         canWhitelistLPs: false,
         canChangeCap: true,
-        canRemoveAllTokens: false,
     };
 
     before(async () => {

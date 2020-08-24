@@ -38,7 +38,6 @@ contract('ESPFactory', async (accounts) => {
         canAddRemoveTokens: true,
         canWhitelistLPs: false,
         canChangeCap: false,
-        canRemoveAllTokens: false,
     };
 
     before(async () => {

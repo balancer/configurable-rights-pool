@@ -46,7 +46,6 @@ contract('configurableAddRemoveTokens - join/exit after add', async (accounts) =
         canAddRemoveTokens: true,
         canWhitelistLPs: false,
         canChangeCap: false,
-        canRemoveAllTokens: false,
     };
 
     before(async () => {
