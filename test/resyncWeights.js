@@ -56,13 +56,13 @@ contract('elasticSupplyPool', async (accounts) => {
             const startBalances = [toWei('10000'), toWei('10000')];
 
             const poolParams = {
-                tokenSymbol: SYMBOL,
-                tokenName: NAME,
-                tokens: tokenAddresses,
-                startBalances: startBalances,
-                startWeights: startWeights,
+                poolTokenSymbol: SYMBOL,
+                poolTokenName: NAME,
+                constituentTokens: tokenAddresses,
+                tokenBalances: startBalances,
+                tokenWeights: startWeights,
                 swapFee: swapFee,
-            }
+                }
     
             CRPPOOL = await crpFactory.newEsp.call(
                 bFactory.address,

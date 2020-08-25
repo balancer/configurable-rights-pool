@@ -18,6 +18,7 @@ contract('configurableWeights_withSwaps', async (accounts) => {
 
     const MAX = web3.utils.toTwosComplement(-1);
     const errorDelta = 10 ** -4;
+    const swapFee = 10 ** 15;
 
     const SYMBOL = 'BSP';
     const NAME = 'Balancer Pool Token';
@@ -70,12 +71,12 @@ contract('configurableWeights_withSwaps', async (accounts) => {
             await abc.mint(user2, toWei('100000000'));
 
             const poolParams = {
-                tokenSymbol: SYMBOL,
-                tokenName: NAME,
-                tokens: [XYZ, WETH],
-                startBalances: startBalances,
-                startWeights: startWeights,
-                swapFee: 10 ** 15,
+                poolTokenSymbol: SYMBOL,
+                poolTokenName: NAME,
+                constituentTokens: [XYZ, WETH],
+                tokenBalances: startBalances,
+                tokenWeights: startWeights,
+                swapFee: swapFee,
             }
     
             CONTROLLER = await factory.newCrp.call(

@@ -45,11 +45,13 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
     // Type declarations
 
     struct PoolParams {
-        string tokenSymbol;
-        string tokenName;
-        address[] tokens;
-        uint[] startBalances;
-        uint[] startWeights;
+        // Balancer Pool Token (representing shares of the pool)
+        string poolTokenSymbol;
+        string poolTokenName;
+        // Tokens inside the Pool
+        address[] constituentTokens;
+        uint[] tokenBalances;
+        uint[] tokenWeights;
         uint swapFee;
     }
 
@@ -74,8 +76,8 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
     // NOTE that the token list is *only* used to store the pool tokens between
     //   construction and createPool - thereafter, use the underlying BPool's list
     //   (avoids synchronization issues)
-    address[] private _tokens;
-    uint[] private _startBalances;
+    address[] private _initialTokens;
+    uint[] private _initialBalances;
 
     // For blockwise, automated weight updates
     // Move weights linearly from _startWeights to _newWeights,
@@ -125,7 +127,7 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
         uint oldCap,
         uint newCap
     );
-
+    
     // Modifiers
 
     modifier logs() {
@@ -158,8 +160,8 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
 
     /**
      * @notice Construct a new Configurable Rights Pool (wrapper around BPool)
-     * @dev _tokens and _swapFee are only used for temporary storage between construction
-     *      and create pool, and should not be used thereafter! _tokens is destroyed in
+     * @dev _initialTokens and _swapFee are only used for temporary storage between construction
+     *      and create pool, and should not be used thereafter! _initialTokens is destroyed in
      *      createPool to prevent this, and _swapFee is kept in sync (defensively), but
      *      should never be used except in this constructor and createPool()
      * @param factoryAddress - the BPoolFactory used to create the underlying pool
@@ -172,7 +174,7 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
         RightsManager.Rights memory rightsStruct
     )
         public
-        PCToken(poolParams.tokenSymbol, poolParams.tokenName)
+        PCToken(poolParams.poolTokenSymbol, poolParams.poolTokenName)
     {
         // We don't have a pool yet; check now or it will fail later (in order of likelihood to fail)
         // (and be unrecoverable if they don't have permission set to change it)
@@ -181,21 +183,21 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
         require(poolParams.swapFee <= BalancerConstants.MAX_FEE, "ERR_INVALID_SWAP_FEE");
 
         // Arrays must be parallel
-        require(poolParams.startBalances.length == poolParams.tokens.length, "ERR_START_BALANCES_MISMATCH");
-        require(poolParams.startWeights.length == poolParams.tokens.length, "ERR_START_WEIGHTS_MISMATCH");
+        require(poolParams.tokenBalances.length == poolParams.constituentTokens.length, "ERR_START_BALANCES_MISMATCH");
+        require(poolParams.tokenWeights.length == poolParams.constituentTokens.length, "ERR_START_WEIGHTS_MISMATCH");
         // Cannot have too many or too few - technically redundant, since BPool.bind() would fail later
         // But if we don't check now, we could have a useless contract with no way to create a pool
 
-        require(poolParams.tokens.length >= BalancerConstants.MIN_ASSET_LIMIT, "ERR_TOO_FEW_TOKENS");
-        require(poolParams.tokens.length <= BalancerConstants.MAX_ASSET_LIMIT, "ERR_TOO_MANY_TOKENS");
+        require(poolParams.constituentTokens.length >= BalancerConstants.MIN_ASSET_LIMIT, "ERR_TOO_FEW_TOKENS");
+        require(poolParams.constituentTokens.length <= BalancerConstants.MAX_ASSET_LIMIT, "ERR_TOO_MANY_TOKENS");
         // There are further possible checks (e.g., if they use the same token twice), but
         // we can let bind() catch things like that (i.e., not things that might reasonably work)
 
         bFactory = IBFactory(factoryAddress);
         rights = rightsStruct;
-        _tokens = poolParams.tokens;
-        _startBalances = poolParams.startBalances;
-        _startWeights = poolParams.startWeights;
+        _initialTokens = poolParams.constituentTokens;
+        _initialBalances = poolParams.tokenBalances;
+        _startWeights = poolParams.tokenWeights;
         _swapFee = poolParams.swapFee;
         // These default block time parameters can be overridden in createPool
         _minimumWeightChangeBlockPeriod = DEFAULT_MIN_WEIGHT_CHANGE_BLOCK_PERIOD;
@@ -472,8 +474,6 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
     /**
      * @notice Schedule (commit) a token to be added; must call applyAddToken after a fixed
      *         number of blocks to actually add the token
-     * @dev Not sure about the naming here. Kind of reversed; I would think you would "Apply" to add
-     *      a token, then "Commit" it to actually do the binding.
      * @param token - the token to be added
      * @param balance - how much to be added
      * @param denormalizedWeight - the desired token weight
@@ -543,17 +543,6 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
         require(rights.canAddRemoveTokens,"ERR_CANNOT_ADD_REMOVE_TOKENS");
         // After createPool, token list is maintained in the underlying BPool
         require(!_newToken.isCommitted, "ERR_REMOVE_WITH_ADD_PENDING");
-  
-        // If we are about to delete the last token, the old pool is non-functional
-        //   (with 0 total denorm, can't add or do anything with it)
-        /* If we wanted to re-enable createPool, could do this
-           (would also have to preserve the local _tokens array)
-        uint numTokens = bPool.getNumTokens();
-        IBPool underlyingPool = bPool;
-
-        if (numTokens == 1) {
-            bPool = IBPool(0);
-        }*/
 
         // Delegate to library to save space
         SmartPoolManager.removeToken(this, bPool, token);
@@ -1005,9 +994,9 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
         require(bPool.EXIT_FEE() == 0, "ERR_NONZERO_EXIT_FEE");
         require(BalancerConstants.EXIT_FEE == 0, "ERR_NONZERO_EXIT_FEE");
 
-        for (uint i = 0; i < _tokens.length; i++) {
-            address t = _tokens[i];
-            uint bal = _startBalances[i];
+        for (uint i = 0; i < _initialTokens.length; i++) {
+            address t = _initialTokens[i];
+            uint bal = _initialBalances[i];
             uint denorm = _startWeights[i];
 
             bool returnValue = IERC20(t).transferFrom(msg.sender, address(this), bal);
@@ -1019,17 +1008,14 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
             bPool.bind(t, bal, denorm);
         }
 
-        // If we wanted to re-enable createPool() after removing all tokens,
-        //   would have to keep the local _tokens array around
-        while (_tokens.length > 0) {
+        while (_initialTokens.length > 0) {
             // Modifying state variable after external calls here,
             // but not essential, so not dangerous
-            _tokens.pop();
+            _initialTokens.pop();
         }
 
         // Set fee to the initial value set in the constructor
         // Hereafter, read the swapFee from the underlying pool, not the local state variable
-
         bPool.setSwapFee(_swapFee);
         bPool.setPublicSwap(true);
     }

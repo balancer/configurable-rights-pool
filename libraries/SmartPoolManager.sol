@@ -216,8 +216,6 @@ library SmartPoolManager {
     /**
      * @notice Schedule (commit) a token to be added; must call applyAddToken after a fixed
      *         number of blocks to actually add the token
-     * @dev Not sure about the naming here. Kind of reversed; I would think you would "Apply" to add
-     *      a token, then "Commit" it to actually do the binding.
      * @param bPool - Core BPool the CRP is wrapping
      * @param token - the token to be added
      * @param balance - how much to be added

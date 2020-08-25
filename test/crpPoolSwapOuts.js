@@ -86,11 +86,11 @@ contract('crpPoolSwapOuts', async (accounts) => {
         await xyz.mint(user1, toWei('20'));
 
         const poolParams = {
-            tokenSymbol: SYMBOL,
-            tokenName: NAME,
-            tokens: [XYZ, WETH, DAI],
-            startBalances: startBalances,
-            startWeights: startWeights,
+            poolTokenSymbol: SYMBOL,
+            poolTokenName: NAME,
+            constituentTokens: [XYZ, WETH, DAI],
+            tokenBalances: startBalances,
+            tokenWeights: startWeights,
             swapFee: swapFee,
         }
 

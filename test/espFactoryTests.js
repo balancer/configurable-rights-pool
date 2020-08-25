@@ -57,11 +57,11 @@ contract('ESPFactory', async (accounts) => {
         await ampl.mint(admin, toWei('1000'));
 
         const poolParams = {
-            tokenSymbol: SYMBOL,
-            tokenName: NAME,
-            tokens: [USDC, DAI],
-            startBalances: startBalances,
-            startWeights: startWeights,
+            poolTokenSymbol: SYMBOL,
+            poolTokenName: NAME,
+            constituentTokens: [USDC, DAI],
+            tokenBalances: startBalances,
+            tokenWeights: startWeights,
             swapFee: swapFee,
         }
 
@@ -103,11 +103,11 @@ contract('ESPFactory', async (accounts) => {
         const badStartWeights = [toWei('12'), toWei('1.5'), toWei('24')];
 
         const poolParams = {
-            tokenSymbol: SYMBOL,
-            tokenName: NAME,
-            tokens: [USDC, DAI],
-            startBalances: startBalances,
-            startWeights: badStartWeights,
+            poolTokenSymbol: SYMBOL,
+            poolTokenName: NAME,
+            constituentTokens: [USDC, DAI],
+            tokenBalances: startBalances,
+            tokenWeights: badStartWeights,
             swapFee: swapFee,
         }
 
@@ -125,11 +125,11 @@ contract('ESPFactory', async (accounts) => {
         const badStartBalances = [toWei('80000'), toWei('40'), toWei('10000'), toWei('5000')];
 
         const poolParams = {
-            tokenSymbol: SYMBOL,
-            tokenName: NAME,
-            tokens: [USDC, DAI],
-            startBalances: badStartBalances,
-            startWeights: startWeights,
+            poolTokenSymbol: SYMBOL,
+            poolTokenName: NAME,
+            constituentTokens: [USDC, DAI],
+            tokenBalances: badStartBalances,
+            tokenWeights: startWeights,
             swapFee: swapFee,
         }
 
@@ -145,11 +145,11 @@ contract('ESPFactory', async (accounts) => {
 
     it('should be able to create with a long symbol', async () => {
         const poolParams = {
-            tokenSymbol: LONG_SYMBOL,
-            tokenName: NAME,
-            tokens: [USDC, DAI],
-            startBalances: startBalances,
-            startWeights: startWeights,
+            poolTokenSymbol: LONG_SYMBOL,
+            poolTokenName: NAME,
+            constituentTokens: [USDC, DAI],
+            tokenBalances: startBalances,
+            tokenWeights: startWeights,
             swapFee: swapFee,
         }
 
@@ -162,13 +162,13 @@ contract('ESPFactory', async (accounts) => {
 
     it('should not be able to create with zero fee', async () => {
         const poolParams = {
-            tokenSymbol: SYMBOL,
-            tokenName: NAME,
-            tokens: [AMPL, USDC],
-            startBalances: startBalances,
-            startWeights: startWeights,
+            poolTokenSymbol: SYMBOL,
+            poolTokenName: NAME,
+            constituentTokens: [USDC, DAI],
+            tokenBalances: startBalances,
+            tokenWeights: startWeights,
             swapFee: 0,
-        }
+       }
 
         await truffleAssert.reverts(
             espFactory.newEsp(
@@ -184,11 +184,11 @@ contract('ESPFactory', async (accounts) => {
         const invalidSwapFee = '200000000000000000';
 
         const poolParams = {
-            tokenSymbol: SYMBOL,
-            tokenName: NAME,
-            tokens: [AMPL, USDC],
-            startBalances: startBalances,
-            startWeights: startWeights,
+            poolTokenSymbol: SYMBOL,
+            poolTokenName: NAME,
+            constituentTokens: [USDC, DAI],
+            tokenBalances: startBalances,
+            tokenWeights: startWeights,
             swapFee: invalidSwapFee,
         }
 

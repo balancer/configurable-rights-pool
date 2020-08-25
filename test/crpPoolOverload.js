@@ -65,11 +65,11 @@ contract('crpPoolOverloadTests', async (accounts) => {
         await xyz.mint(admin, toWei('100000'));
 
         const poolParams = {
-            tokenSymbol: SYMBOL,
-            tokenName: NAME,
-            tokens: [XYZ, WETH, DAI],
-            startBalances: startBalances,
-            startWeights: startWeights,
+            poolTokenSymbol: SYMBOL,
+            poolTokenName: NAME,
+            constituentTokens: [XYZ, WETH, DAI],
+            tokenBalances: startBalances,
+            tokenWeights: startWeights,
             swapFee: swapFee,
         }
 

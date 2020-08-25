@@ -76,11 +76,11 @@ contract('Bankless Simulation (destroy pool)', async (accounts) => {
         await dai.mint(user3, toWei('100000'));
 
         const poolParams = {
-            tokenSymbol: SYMBOL,
-            tokenName: NAME,
-            tokens: tokenAddresses,
-            startBalances: startBalances,
-            startWeights: startWeights,
+            poolTokenSymbol: SYMBOL,
+            poolTokenName: NAME,
+            constituentTokens: tokenAddresses,
+            tokenBalances: startBalances,
+            tokenWeights: startWeights,
             swapFee: swapFee,
         }
 

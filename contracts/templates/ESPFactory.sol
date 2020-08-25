@@ -54,11 +54,11 @@ contract ESPFactory {
         external
         returns (ElasticSupplyPool)
     {
-        require(poolParams.tokens.length >= BalancerConstants.MIN_ASSET_LIMIT, "ERR_TOO_FEW_TOKENS");
+        require(poolParams.constituentTokens.length >= BalancerConstants.MIN_ASSET_LIMIT, "ERR_TOO_FEW_TOKENS");
 
         // Arrays must be parallel
-        require(poolParams.startBalances.length == poolParams.tokens.length, "ERR_START_BALANCES_MISMATCH");
-        require(poolParams.startWeights.length == poolParams.tokens.length, "ERR_START_WEIGHTS_MISMATCH");
+        require(poolParams.tokenBalances.length == poolParams.constituentTokens.length, "ERR_START_BALANCES_MISMATCH");
+        require(poolParams.tokenWeights.length == poolParams.constituentTokens.length, "ERR_START_WEIGHTS_MISMATCH");
 
         ElasticSupplyPool esp = new ElasticSupplyPool(
             factoryAddress,

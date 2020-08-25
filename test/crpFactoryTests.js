@@ -73,11 +73,11 @@ contract('CRPFactory', async (accounts) => {
         await xyz.mint(admin, toWei('100000'));
 
         const poolParams = {
-            tokenSymbol: SYMBOL,
-            tokenName: NAME,
-            tokens: [XYZ, WETH, DAI],
-            startBalances: startBalances,
-            startWeights: startWeights,
+            poolTokenSymbol: SYMBOL,
+            poolTokenName: NAME,
+            constituentTokens: [XYZ, WETH, DAI],
+            tokenBalances: startBalances,
+            tokenWeights: startWeights,
             swapFee: swapFee,
         }
 
@@ -120,11 +120,11 @@ contract('CRPFactory', async (accounts) => {
         const badStartWeights = [toWei('12'), toWei('1.5')];
 
         const poolParams = {
-            tokenSymbol: SYMBOL,
-            tokenName: NAME,
-            tokens: [XYZ, WETH, DAI],
-            startBalances: startBalances,
-            startWeights: badStartWeights,
+            poolTokenSymbol: SYMBOL,
+            poolTokenName: NAME,
+            constituentTokens: [XYZ, WETH, DAI],
+            tokenBalances: startBalances,
+            tokenWeights: badStartWeights,
             swapFee: swapFee,
         }
 
@@ -142,11 +142,11 @@ contract('CRPFactory', async (accounts) => {
         const badStartBalances = [toWei('80000'), toWei('40'), toWei('10000'), toWei('5000')];
 
         const poolParams = {
-            tokenSymbol: SYMBOL,
-            tokenName: NAME,
-            tokens: [XYZ, WETH, DAI],
-            startBalances: badStartBalances,
-            startWeights: startWeights,
+            poolTokenSymbol: SYMBOL,
+            poolTokenName: NAME,
+            constituentTokens: [XYZ, WETH, DAI],
+            tokenBalances: badStartBalances,
+            tokenWeights: startWeights,
             swapFee: swapFee,
         }
 
@@ -162,11 +162,11 @@ contract('CRPFactory', async (accounts) => {
 
     it('should still be able to create with a long symbol', async () => {
         const poolParams = {
-            tokenSymbol: LONG_SYMBOL,
-            tokenName: NAME,
-            tokens: [XYZ, WETH, DAI],
-            startBalances: startBalances,
-            startWeights: startWeights,
+            poolTokenSymbol: LONG_SYMBOL,
+            poolTokenName: NAME,
+            constituentTokens: [XYZ, WETH, DAI],
+            tokenBalances: startBalances,
+            tokenWeights: startWeights,
             swapFee: swapFee,
         }
 
@@ -179,11 +179,11 @@ contract('CRPFactory', async (accounts) => {
 
     it('should not be able to create with zero fee', async () => {
         const poolParams = {
-            tokenSymbol: LONG_SYMBOL,
-            tokenName: NAME,
-            tokens: [XYZ, WETH, DAI],
-            startBalances: startBalances,
-            startWeights: startWeights,
+            poolTokenSymbol: LONG_SYMBOL,
+            poolTokenName: NAME,
+            constituentTokens: [XYZ, WETH, DAI],
+            tokenBalances: startBalances,
+            tokenWeights: startWeights,
             swapFee: 0,
         }
 
@@ -203,11 +203,11 @@ contract('CRPFactory', async (accounts) => {
         const invalidSwapFee = '200000000000000000';
 
         const poolParams = {
-            tokenSymbol: SYMBOL,
-            tokenName: NAME,
-            tokens: [XYZ, WETH, DAI],
-            startBalances: startBalances,
-            startWeights: startWeights,
+            poolTokenSymbol: SYMBOL,
+            poolTokenName: NAME,
+            constituentTokens: [XYZ, WETH, DAI],
+            tokenBalances: startBalances,
+            tokenWeights: startWeights,
             swapFee: invalidSwapFee,
         }
 
@@ -225,11 +225,11 @@ contract('CRPFactory', async (accounts) => {
         // Max is 10**18 / 10
         // Have to pass it as a string for some reason...
         const poolParams = {
-            tokenSymbol: SYMBOL,
-            tokenName: NAME,
-            tokens: [DAI],
-            startBalances: [toWei('1000')],
-            startWeights: [toWei('20')],
+            poolTokenSymbol: SYMBOL,
+            poolTokenName: NAME,
+            constituentTokens: [DAI],
+            tokenBalances: [toWei('1000')],
+            tokenWeights: [toWei('20')],
             swapFee: swapFee,
         }
 
@@ -247,13 +247,13 @@ contract('CRPFactory', async (accounts) => {
         // Max is 10**18 / 10
         // Have to pass it as a string for some reason...
         const poolParams = {
-            tokenSymbol: SYMBOL,
-            tokenName: NAME,
-            tokens: [DAI, DAI, DAI, DAI, DAI, DAI, DAI, DAI, DAI],
-            startBalances: [toWei('1000'), toWei('1000'), toWei('1000'), toWei('1000'),
+            poolTokenSymbol: SYMBOL,
+            poolTokenName: NAME,
+            constituentTokens: [DAI, DAI, DAI, DAI, DAI, DAI, DAI, DAI, DAI],
+            tokenBalances: [toWei('1000'), toWei('1000'), toWei('1000'), toWei('1000'),
                             toWei('1000'), toWei('1000'), toWei('1000'), toWei('1000'),
                             toWei('1000')],
-            startWeights: [toWei('20'), toWei('20'), toWei('20'), toWei('20'),
+            tokenWeights: [toWei('20'), toWei('20'), toWei('20'), toWei('20'),
                            toWei('20'), toWei('20'), toWei('20'), toWei('20'), toWei('20')],
             swapFee: swapFee,
         }

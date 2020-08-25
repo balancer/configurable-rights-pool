@@ -60,13 +60,13 @@ contract('configurableWeightsUMA', async (accounts) => {
             await abc.mint(admin, toWei('100000000'));
 
             const poolParams = {
-                tokenSymbol: SYMBOL,
-                tokenName: NAME,
-                tokens: [XYZ, WETH],
-                startBalances: startBalances,
-                startWeights: startWeights,
+                poolTokenSymbol: SYMBOL,
+                poolTokenName: NAME,
+                constituentTokens: [XYZ, WETH],
+                tokenBalances: startBalances,
+                tokenWeights: startWeights,
                 swapFee: 10 ** 15,
-            }
+               }
     
             CONTROLLER = await factory.newCrp.call(
                 bfactory.address,

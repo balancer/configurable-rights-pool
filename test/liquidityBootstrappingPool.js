@@ -85,11 +85,11 @@ contract('Liquidity Bootstrapping', async (accounts) => {
             await xyz.mint(admin, toWei('40000'));
  
             const poolParams = {
-                tokenSymbol: SYMBOL,
-                tokenName: NAME,
-                tokens: [XYZ, DAI],
-                startBalances: startBalances,
-                startWeights: startWeights,
+                poolTokenSymbol: SYMBOL,
+                poolTokenName: NAME,
+                constituentTokens: [XYZ, DAI],
+                tokenBalances: startBalances,
+                tokenWeights: startWeights,
                 swapFee: swapFee,
             }
     
@@ -203,13 +203,13 @@ contract('Liquidity Bootstrapping', async (accounts) => {
             await xyz.mint(admin, toWei('40000'));
 
             const poolParams = {
-                tokenSymbol: SYMBOL,
-                tokenName: NAME,
-                tokens: [XYZ, DAI],
-                startBalances: startBalances,
-                startWeights: startWeights,
+                poolTokenSymbol: SYMBOL,
+                poolTokenName: NAME,
+                constituentTokens: [XYZ, DAI],
+                tokenBalances: startBalances,
+                tokenWeights: startWeights,
                 swapFee: swapFee,
-            }
+                }
 
             CONTROLLER = await crpFactory.newCrp.call(
                 bFactory.address,

@@ -66,11 +66,11 @@ contract('configurableSwapFee', async (accounts) => {
         const tokenAddresses = [XYZ, WETH, DAI];
 
         const poolParams = {
-            tokenSymbol: SYMBOL,
-            tokenName: NAME,
-            tokens: tokenAddresses,
-            startBalances: startBalances,
-            startWeights: startWeights,
+            poolTokenSymbol: SYMBOL,
+            poolTokenName: NAME,
+            constituentTokens: tokenAddresses,
+            tokenBalances: startBalances,
+            tokenWeights: startWeights,
             swapFee: swapFee,
         }
 
