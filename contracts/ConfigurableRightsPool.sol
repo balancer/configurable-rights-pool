@@ -310,9 +310,6 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
         bPool.setPublicSwap(publicSwap);
     }
 
-    // createPools functions exceed max lines, but many are requires; unavoidable
-    /* solhint-disable function-max-lines */
-
     /**
      * @notice Create a new Smart Pool - and set the block period time parameters
      * @dev Initialize the swap fee to the value provided in the CRP constructor
@@ -322,13 +319,7 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
      *      If this contract doesn't have canChangeWeights permission - or you want to use the default
      *      values, the block time arguments are not needed, and you can just call the single-argument
      *      createPool()
-     * 
-     *      NB:
-     *      Code is duplicated in the overloaded createPool! If you change one, change the other!
-     *      Unfortunately I cannot call this.createPool(initialSupply) from the overloaded one,
-     *      because msg.sender will be different (contract address vs external account), and the
-     *      token transfers would fail
-     * @param initialSupply starting token balance
+     * @param initialSupply - Starting token balance
      * @param minimumWeightChangeBlockPeriod - Enforce a minimum time between the start and end blocks
      * @param addTokenTimeLockInBlocks - Enforce a mandatory wait time between updates
      *                                   This is also the wait time between committing and applying a new token
@@ -343,9 +334,6 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
         lock
         virtual
     {
-        require(address(bPool) == address(0), "ERR_IS_CREATED");
-        require(initialSupply > 0, "ERR_INIT_SUPPLY");
-
         require(minimumWeightChangeBlockPeriod >= BalancerConstants.MIN_WEIGHT_CHANGE_BLOCK_PERIOD,
                 "ERR_INVALID_BLOCK_PERIOD");
         require(addTokenTimeLockInBlocks <= minimumWeightChangeBlockPeriod,
@@ -356,68 +344,12 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
         _minimumWeightChangeBlockPeriod = minimumWeightChangeBlockPeriod;
         _addTokenTimeLockInBlocks = addTokenTimeLockInBlocks;
 
-        // If the controller can change the cap, initialize it to the initial supply
-        // Defensive programming, so that there is no gap between creating the pool
-        // (initialized to unlimited in the constructor), and setting the cap,
-        // which they will presumably do if they have this right.
-        if (rights.canChangeCap) {
-            _bspCap = initialSupply;
-        }
-
-        // There is technically reentrancy here, since we're making external calls and
-        //   then transferring tokens. However, the external calls are all to the underlying BPool
-
-        // To the extent possible, modify state variables before calling functions
-        _mintPoolShare(initialSupply);
-        _pushPoolShare(msg.sender, initialSupply);
-
-        // Deploy new BPool (bFactory and bPool are interfaces; all calls are external)
-        bPool = bFactory.newBPool();
-
-        // EXIT_FEE must always be zero, or ConfigurableRightsPool._pushUnderlying will fail
-        require(bPool.EXIT_FEE() == 0, "ERR_NONZERO_EXIT_FEE");
-        require(BalancerConstants.EXIT_FEE == 0, "ERR_NONZERO_EXIT_FEE");
-
-        for (uint i = 0; i < _tokens.length; i++) {
-            address t = _tokens[i];
-            uint bal = _startBalances[i];
-            uint denorm = _startWeights[i];
-
-            bool returnValue = IERC20(t).transferFrom(msg.sender, address(this), bal);
-            require(returnValue, "ERR_ERC20_FALSE");
-
-            returnValue = IERC20(t).safeApprove(address(bPool), BalancerConstants.MAX_UINT);
-            require(returnValue, "ERR_ERC20_FALSE");
-
-            // Binding pushes a token to the end of the underlying pool's array
-            // After binding, we discard the local _tokens array
-            bPool.bind(t, bal, denorm);
-        }
-
-        // If we wanted to re-enable createPool() after removing all tokens,
-        //   would have to keep the local _tokens array around
-        while (_tokens.length > 0) {
-            // Modifying state variable after external calls here,
-            // but not essential, so not dangerous
-            _tokens.pop();
-        }
-
-        // Set fee to the initial value set in the constructor
-        // Hereafter, read the swapFee from the underlying pool, not the local state variable
-        bPool.setSwapFee(_swapFee);
-        bPool.setPublicSwap(true);
+        createPoolInternal(initialSupply);
     }
 
     /**
      * @notice Create a new Smart Pool
-     * @dev Initialize the swap fee to the value provided in the CRP constructor
-     *      Can be changed if the canChangeSwapFee permission is enabled
-     *
-     *      NB:
-     *      Code is duplicated in the overloaded createPool! If you change one, change the other!
-     *      Unfortunately I cannot call this.createPool(initialSupply) from the overloaded one,
-     *      because msg.sender will be different (contract address vs external account), and the
-     *      token transfers would fail.
+     * @dev Delegates to internal function
      * @param initialSupply starting token balance
      */
     function createPool(uint initialSupply)
@@ -426,70 +358,8 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
         lock
         virtual
     {
-        require(address(bPool) == address(0), "ERR_IS_CREATED");
-        require(initialSupply > 0, "ERR_INIT_SUPPLY");
-
-        // If the controller can change the cap, initialize it to the initial supply
-        // Defensive programming, so that there is no gap between creating the pool
-        // (initialized to unlimited in the constructor), and setting the cap,
-        // which they will presumably do if they have this right.
-        if (rights.canChangeCap) {
-            _bspCap = initialSupply;
-        }
-
-        // There is technically reentrancy here, since we're making external calls and
-        // then transferring tokens. However, the external calls are all to the underlying BPool
-
-        // To the extent possible, modify state variables before calling functions
-        _mintPoolShare(initialSupply);
-        _pushPoolShare(msg.sender, initialSupply);
-
-        // Deploy new BPool (bFactory and bPool are interfaces; all calls are external)
-        bPool = bFactory.newBPool();
-
-        // EXIT_FEE must always be zero, or ConfigurableRightsPool._pushUnderlying will fail
-        require(bPool.EXIT_FEE() == 0, "ERR_NONZERO_EXIT_FEE");
-        require(BalancerConstants.EXIT_FEE == 0, "ERR_NONZERO_EXIT_FEE");
-
-        for (uint i = 0; i < _tokens.length; i++) {
-            address t = _tokens[i];
-            uint bal = _startBalances[i];
-            uint denorm = _startWeights[i];
-
-            bool returnValue = IERC20(t).transferFrom(msg.sender, address(this), bal);
-            require(returnValue, "ERR_ERC20_FALSE");
-
-            returnValue = IERC20(t).safeApprove(address(bPool), BalancerConstants.MAX_UINT);
-            require(returnValue, "ERR_ERC20_FALSE");
-
-            bPool.bind(t, bal, denorm);
-        }
-
-        // If we wanted to re-enable createPool() after removing all tokens,
-        //   would have to keep the local _tokens array around
-        while (_tokens.length > 0) {
-            // Modifying state variable after external calls here,
-            // but not essential, so not dangerous
-            _tokens.pop();
-        }
-
-        /* Do "finalize" things, but can't call bPool.finalize(), or it wouldn't let us rebind or do any
-           adjustments. The underlying pool has to remain unfinalized, but we want to mint the tokens
-           immediately. This is how a CRP differs from base Pool. Base Pool tokens are issued on finalize;
-           CRP pool tokens are issued on create.
-         
-           We really don't need a "CRP level" finalize. It is considered "finalized" on creation.
-           Since the underlying pool is never finalized, it is sufficient just to check that the pool exists,
-           and you can join it.
-
-           Set fee to the initial value set in the constructor
-           Hereafter, read the swapFee from the underlying pool, not the local state variable */
-
-        bPool.setSwapFee(_swapFee);
-        bPool.setPublicSwap(true);
+        createPoolInternal(initialSupply);
     }
-
-    /* solhint-enable function-max-lines */
 
     /**
      * @notice Update the weight of an existing token
@@ -1101,6 +971,67 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
     // Accessor to allow subclasses to check the start block
     function getStartBlock() internal view returns (uint) {
         return _startBlock;
+    }
+
+    /**
+     * @notice Create a new Smart Pool
+     * @dev Initialize the swap fee to the value provided in the CRP constructor
+     *      Can be changed if the canChangeSwapFee permission is enabled
+     * @param initialSupply starting token balance
+     */
+    function createPoolInternal(uint initialSupply) internal {
+        require(address(bPool) == address(0), "ERR_IS_CREATED");
+        require(initialSupply > 0, "ERR_INIT_SUPPLY");
+
+        // If the controller can change the cap, initialize it to the initial supply
+        // Defensive programming, so that there is no gap between creating the pool
+        // (initialized to unlimited in the constructor), and setting the cap,
+        // which they will presumably do if they have this right.
+        if (rights.canChangeCap) {
+            _bspCap = initialSupply;
+        }
+
+        // There is technically reentrancy here, since we're making external calls and
+        // then transferring tokens. However, the external calls are all to the underlying BPool
+
+        // To the extent possible, modify state variables before calling functions
+        _mintPoolShare(initialSupply);
+        _pushPoolShare(msg.sender, initialSupply);
+
+        // Deploy new BPool (bFactory and bPool are interfaces; all calls are external)
+        bPool = bFactory.newBPool();
+
+        // EXIT_FEE must always be zero, or ConfigurableRightsPool._pushUnderlying will fail
+        require(bPool.EXIT_FEE() == 0, "ERR_NONZERO_EXIT_FEE");
+        require(BalancerConstants.EXIT_FEE == 0, "ERR_NONZERO_EXIT_FEE");
+
+        for (uint i = 0; i < _tokens.length; i++) {
+            address t = _tokens[i];
+            uint bal = _startBalances[i];
+            uint denorm = _startWeights[i];
+
+            bool returnValue = IERC20(t).transferFrom(msg.sender, address(this), bal);
+            require(returnValue, "ERR_ERC20_FALSE");
+
+            returnValue = IERC20(t).safeApprove(address(bPool), BalancerConstants.MAX_UINT);
+            require(returnValue, "ERR_ERC20_FALSE");
+
+            bPool.bind(t, bal, denorm);
+        }
+
+        // If we wanted to re-enable createPool() after removing all tokens,
+        //   would have to keep the local _tokens array around
+        while (_tokens.length > 0) {
+            // Modifying state variable after external calls here,
+            // but not essential, so not dangerous
+            _tokens.pop();
+        }
+
+        // Set fee to the initial value set in the constructor
+        // Hereafter, read the swapFee from the underlying pool, not the local state variable
+
+        bPool.setSwapFee(_swapFee);
+        bPool.setPublicSwap(true);
     }
 
     /* solhint-enable private-vars-leading-underscore */

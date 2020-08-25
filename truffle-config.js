@@ -21,7 +21,7 @@ module.exports = {
             settings: { // See the solidity docs for advice about optimization and evmVersion
                 optimizer: {
                     enabled: true,
-                    runs: 25,
+                    runs: 1000,
                 },
                 evmVersion: 'istanbul',
             },
