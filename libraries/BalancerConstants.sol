@@ -17,7 +17,8 @@ library BalancerConstants {
     uint public constant MAX_TOTAL_WEIGHT = BONE * 50;
     uint public constant MIN_BALANCE = BONE / 10**6;
     uint public constant MAX_BALANCE = BONE * 10**12;
-    uint public constant MIN_POOL_SUPPLY = BONE;
+    uint public constant MIN_POOL_SUPPLY = BONE * 100;
+    uint public constant MAX_POOL_SUPPLY = BONE * 10**9;
     uint public constant MIN_FEE = BONE / 10**6;
     uint public constant MAX_FEE = BONE / 10;
     // EXIT_FEE must always be zero, or ConfigurableRightsPool._pushUnderlying will fail
@@ -27,7 +28,5 @@ library BalancerConstants {
     // Must match BConst.MIN_BOUND_TOKENS and BConst.MAX_BOUND_TOKENS
     uint public constant MIN_ASSET_LIMIT = 2;
     uint public constant MAX_ASSET_LIMIT = 8;
-    uint public constant MIN_WEIGHT_CHANGE_BLOCK_PERIOD = 10;
-    uint public constant MIN_TOKEN_TIME_LOCK_PERIOD = 10;
     uint public constant MAX_UINT = uint(-1);
 }

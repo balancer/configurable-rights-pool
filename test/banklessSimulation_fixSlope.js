@@ -62,7 +62,7 @@ contract('Bankless Simulation (mid-stream adjustment)', async (accounts) => {
         await bap0.mint(admin, toWei('38'));
         await dai.mint(admin, toWei('3000'));
 
-        await dai.mint(user, toWei('100000'));
+        await dai.mint(user, toWei('200000'));
 
         // Initially 5% DAI / 95% BAP0
         const tokenAddresses = [DAI, BAP0];
@@ -97,7 +97,7 @@ contract('Bankless Simulation (mid-stream adjustment)', async (accounts) => {
 
         await crpPool.approve(user, MAX);
 
-        await crpPool.createPool(toWei(numPoolTokens));
+        await crpPool.createPool(toWei(numPoolTokens), 10, 10);
     });
 
     it('crpPool should have correct rights set', async () => {

@@ -7,10 +7,12 @@ const TToken = artifacts.require('TToken');
 const BPool = artifacts.require('BPool');
 const truffleAssert = require('truffle-assertions');
 const { time } = require('@openzeppelin/test-helpers');
+const { assert } = require('chai');
+const Decimal = require('decimal.js');
 
 contract('configurableAddRemoveTokens', async (accounts) => {
     const admin = accounts[0];
-    const { toWei } = web3.utils;
+    const { toWei, fromWei } = web3.utils;
 
     const MAX = web3.utils.toTwosComplement(-1);
 
@@ -42,7 +44,7 @@ contract('configurableAddRemoveTokens', async (accounts) => {
     const permissions = {
         canPauseSwapping: false,
         canChangeSwapFee: false,
-        canChangeWeights: false,
+        canChangeWeights: true,
         canAddRemoveTokens: true,
         canWhitelistLPs: false,
         canChangeCap: false,
@@ -111,16 +113,18 @@ contract('configurableAddRemoveTokens', async (accounts) => {
         await abc.approve(CRPPOOL_ADDRESS, MAX);
         await asd.approve(CRPPOOL_ADDRESS, MAX);
 
-        await crpPool.createPool(toWei('100'));
+        await crpPool.createPool(toWei('100'), 10, 10);
     });
 
     it('crpPool should have correct rights set', async () => {
         const addRemoveRight = await crpPool.hasPermission(3);
         assert.isTrue(addRemoveRight);
+        const changeWeightRight = await crpPool.hasPermission(2);
+        assert.isTrue(changeWeightRight);
 
         let x;
         for (x = 0; x < permissions.length; x++) {
-            if (x !== 3) {
+            if (x !== 3 && x !== 2) {
                 const otherPerm = await crpPool.hasPermission(x);
                 assert.isFalse(otherPerm);
             }
@@ -142,6 +146,13 @@ contract('configurableAddRemoveTokens', async (accounts) => {
         await truffleAssert.reverts(
             crpPool.commitAddToken(ABC, toWei('10000'), toWei('35.1')), // total weight = 50.1, invalid
             'ERR_MAX_TOTAL_WEIGHT',
+        );
+    });
+
+    it('Controller should not be able to commitAddToken with invalid balance', async () => {
+        await truffleAssert.reverts(
+            crpPool.commitAddToken(ABC, toWei('0'), toWei('5')),
+            'ERR_BALANCE_BELOW_MIN',
         );
     });
 
@@ -266,6 +277,34 @@ contract('configurableAddRemoveTokens', async (accounts) => {
         assert.equal(abcWeight, toWei('1.5'));
     });
 
+    it('Should be able to call updateWeightsGradually after adding a token', async () => {
+        // Tokens are now: XYZ, WETH, DAI, ABC
+        const endWeights = [toWei('12'), toWei('1.5'), toWei('1.5'), toWei('1.5')];
+        let block = await web3.eth.getBlock('latest');
+        const startBlock = block.number;
+        const endBlock = startBlock + 10;
+
+        await crpPool.updateWeightsGradually(endWeights, startBlock, endBlock);
+
+        // Have to let it finish to do other operations
+        block = await web3.eth.getBlock('latest');
+        while (block.number < startBlock) {
+            // Wait for the start block
+            block = await web3.eth.getBlock('latest');
+            console.log(`Waiting for start. Block: ${block.number}`);
+            await time.advanceBlock();
+        }
+
+        while (block.number < endBlock) {
+            await crpPool.pokeWeights();
+
+            console.log(`Waiting for end. Block: ${block.number}`);
+            await time.advanceBlock();
+
+            block = await web3.eth.getBlock('latest');
+        }
+    });
+
     it('Controller should not be able to applyAddToken after finished', async () => {
         truffleAssert.reverts(
             crpPool.applyAddToken(),
@@ -339,33 +378,82 @@ contract('configurableAddRemoveTokens', async (accounts) => {
     });
 
     it('Should be able to remove a token', async () => {
-        // It now has ABC, XYZ, and WETH
-        await crpPool.removeToken(ABC);
+        // Tokens are now: XYZ, WETH, ABC
+        await crpPool.removeToken(XYZ);
+    });
+
+    it('Start weights should still be aligned, after removeToken', async () => {
+        // Tokens are now ABC, WETH (swaps XYZ with ABC, then deletes XYZ)
+        const bPoolAddr = await crpPool.bPool();
+        const bPool = await BPool.at(bPoolAddr);
+        let i;
+
+        console.log(`WETH = ${WETH}`);
+        console.log(`ABC = ${ABC}`);
+
+        const poolTokens = await bPool.getCurrentTokens();        
+        for (i = 0; i < poolTokens.length; i++) {
+             const tokenWeight = await bPool.getDenormalizedWeight(poolTokens[i]);
+             console.log(`Token[${i}] = ${poolTokens[i]}; weight ${fromWei(tokenWeight)}`);
+        }
+
+        assert.equal(poolTokens.length, 2);
+        assert.equal(poolTokens[0], ABC);
+        assert.equal(poolTokens[1], WETH);
+
+        // Add this to ConfigurableRightsPool to check
+        // function getStartWeights() public returns (uint[] memory) {
+        //    return _startWeights;
+        // }
+    
+        /*const startWeights = await crpPool.getStartWeights.call();
+        console.log("CRP start weights");
+        for (i = 0; i < startWeights.length; i++) {
+            console.log(`startWeight[${i}] = ${fromWei(startWeights[i])}`);
+        }*/
+    });
+
+    it('Should allow updateWeightsGradually again, after remove', async () => {
+        // Tokens are now: ABC, WETH
+        const endWeights = [toWei('3'), toWei('4.5')];
+        let block = await web3.eth.getBlock('latest');
+        const startBlock = block.number;
+        const endBlock = startBlock + 10;
+
+        await crpPool.updateWeightsGradually(endWeights, startBlock, endBlock);
+
+        // Have to let it finish to do other operations
+        block = await web3.eth.getBlock('latest');
+        while (block.number < startBlock) {
+            // Wait for the start block
+            block = await web3.eth.getBlock('latest');
+            console.log(`Waiting for start. Block: ${block.number}`);
+            await time.advanceBlock();
+        }
+
+        while (block.number < endBlock) {
+            await crpPool.pokeWeights();
+
+            console.log(`Waiting for end. Block: ${block.number}`);
+            await time.advanceBlock();
+
+            block = await web3.eth.getBlock('latest');
+        }
+
+        // Make sure right weights are on right tokens at the end
+        const abcWeight = await crpPool.getDenormalizedWeight(ABC);
+        console.log(`ABC weight = ${fromWei(abcWeight)}`);
+        assert.equal(Decimal(fromWei(abcWeight)), 3);
+
+        const wethWeight = await crpPool.getDenormalizedWeight(WETH);
+        console.log(`WETH weight = ${fromWei(wethWeight)}`);
+        assert.equal(Decimal(fromWei(wethWeight)), 4.5);
     });
 
     it('Set public swap should revert because non-permissioned', async () => {
         await truffleAssert.reverts(
             crpPool.setPublicSwap(false),
             'ERR_NOT_PAUSABLE_SWAP',
-        );
-    });
-
-    it('Configurable weight should revert because non-permissioned', async () => {
-        await truffleAssert.reverts(
-            crpPool.updateWeight(xyz.address, toWei('13')),
-            'ERR_NOT_CONFIGURABLE_WEIGHTS',
-        );
-
-        const block = await web3.eth.getBlock('latest');
-
-        await truffleAssert.reverts(
-            crpPool.updateWeightsGradually([toWei('2'), toWei('5'), toWei('5')], block.number, block.number + 10),
-            'ERR_NOT_CONFIGURABLE_WEIGHTS',
-        );
-
-        await truffleAssert.reverts(
-            crpPool.pokeWeights(),
-            'ERR_NOT_CONFIGURABLE_WEIGHTS',
         );
     });
 

@@ -128,6 +128,12 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
         uint newCap
     );
     
+    event NewTokenCommitted(
+        address indexed token,
+        address indexed pool,
+        address indexed caller
+    );
+
     // Modifiers
 
     modifier logs() {
@@ -153,8 +159,9 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
     // Pools without permission to update weights cannot use them anyway, and should call
     //   the default createPool() function.
     // To override these defaults, pass them into the overloaded createPool()
-    uint public constant DEFAULT_MIN_WEIGHT_CHANGE_BLOCK_PERIOD = 10;
-    uint public constant DEFAULT_ADD_TOKEN_TIME_LOCK_IN_BLOCKS = 10;
+    // Period is in blocks; 500 blocks ~ 2 hours; 90,000 blocks ~ 2 weeks
+    uint public constant DEFAULT_MIN_WEIGHT_CHANGE_BLOCK_PERIOD = 90000;
+    uint public constant DEFAULT_ADD_TOKEN_TIME_LOCK_IN_BLOCKS = 500;
 
     // Function declarations
 
@@ -192,6 +199,8 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
         require(poolParams.constituentTokens.length <= BalancerConstants.MAX_ASSET_LIMIT, "ERR_TOO_MANY_TOKENS");
         // There are further possible checks (e.g., if they use the same token twice), but
         // we can let bind() catch things like that (i.e., not things that might reasonably work)
+
+        SmartPoolManager.verifyTokenCompliance(poolParams.constituentTokens);
 
         bFactory = IBFactory(factoryAddress);
         rights = rightsStruct;
@@ -336,13 +345,9 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
         lock
         virtual
     {
-        require(minimumWeightChangeBlockPeriod >= BalancerConstants.MIN_WEIGHT_CHANGE_BLOCK_PERIOD,
-                "ERR_INVALID_BLOCK_PERIOD");
-        require(addTokenTimeLockInBlocks <= minimumWeightChangeBlockPeriod,
+        require (minimumWeightChangeBlockPeriod >= addTokenTimeLockInBlocks,
                 "ERR_INCONSISTENT_TOKEN_TIME_LOCK");
-        require(addTokenTimeLockInBlocks >= BalancerConstants.MIN_TOKEN_TIME_LOCK_PERIOD,
-                "ERR_INVALID_TOKEN_TIME_LOCK");
-
+ 
         _minimumWeightChangeBlockPeriod = minimumWeightChangeBlockPeriod;
         _addTokenTimeLockInBlocks = addTokenTimeLockInBlocks;
 
@@ -377,6 +382,7 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
         lock
         onlyOwner
         needsBPool
+        withinCap
         virtual
     {
         require(rights.canChangeWeights, "ERR_NOT_CONFIGURABLE_WEIGHTS");
@@ -395,7 +401,11 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
      *      and enable calling this again.
      *      It is possible to call updateWeightsGradually during an update in some use cases
      *      For instance, setting newWeights to currentWeights to stop the update where it is
-     * @param newWeights - final weights we want to get to
+     * @param newWeights - final weights we want to get to. Note that the ORDER (and number) of
+     *                     tokens can change if you have added or removed tokens from the pool
+     *                     It ensures the counts are correct, but can't help you with the order!
+     *                     You can get the underlying BPool (it's public), and call 
+     *                     getCurrentTokens() to see the current ordering, if you're not sure
      * @param startBlock - when weights should start to change
      * @param endBlock - when weights will be at their final values
     */
@@ -412,6 +422,9 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
         virtual
     {
         require(rights.canChangeWeights, "ERR_NOT_CONFIGURABLE_WEIGHTS");
+         // Don't start this when we're in the middle of adding a new token
+        require(!_newToken.isCommitted, "ERR_PENDING_TOKEN_ADD");
+        
         // After createPool, token list is maintained in the underlying BPool
         address[] memory poolTokens = bPool.getCurrentTokens();
 
@@ -425,7 +438,6 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
         (uint actualStartBlock,
          uint[] memory startWeights) = SmartPoolManager.updateWeightsGradually(
                                            bPool,
-                                           _newToken,
                                            newWeights,
                                            startBlock,
                                            endBlock,
@@ -474,6 +486,12 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
     /**
      * @notice Schedule (commit) a token to be added; must call applyAddToken after a fixed
      *         number of blocks to actually add the token
+     *
+     * @dev The purpose of this two-stage commit is to give warning of a potentially dangerous
+     *      operation. A malicious pool operator could add a large amount of a low-value token,
+     *      then drain the pool through price manipulation. Of course, there are many
+     *      legitimate purposes, such as adding additional collateral tokens.
+     *
      * @param token - the token to be added
      * @param balance - how much to be added
      * @param denormalizedWeight - the desired token weight
@@ -495,6 +513,10 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
         // Can't do this while a progressive update is happening
         require(_startBlock == 0, "ERR_NO_UPDATE_DURING_GRADUAL");
 
+        SmartPoolManager.verifyTokenCompliance(token);
+
+        emit NewTokenCommitted(token, address(this), msg.sender);
+
         // Delegate to library to save space
         SmartPoolManager.commitAddToken(
             bPool,
@@ -514,9 +536,14 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
         lock
         onlyOwner
         needsBPool
+        withinCap
         virtual
     {
         require(rights.canAddRemoveTokens, "ERR_CANNOT_ADD_REMOVE_TOKENS");
+
+        // Need to add the new token's weight to _startWeights
+        // Otherwise, updateWeightsGradually will fail after adding a token
+        _startWeights.push(_newToken.denorm);
 
         // Delegate to library to save space
         SmartPoolManager.applyAddToken(
@@ -546,6 +573,22 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
 
         // Delegate to library to save space
         SmartPoolManager.removeToken(this, bPool, token);
+
+        /* When you remove a token, the underlying BPool will swap the
+           token you're removing with the last one, then delete the last one
+           This changes the order of tokens - and invalidates _startWeights!
+           To be able to call updateWeightsGradually later, we need to keep
+           _startWeights in sync with the underlying pool at all times.
+           
+           This means appending on applyAddToken, and just resetting it after
+           a remove
+        */
+        address[] memory poolTokens = bPool.getCurrentTokens();
+        // Subtract one from the length, and align the current weights
+        _startWeights.pop();
+        for (uint i = 0; i < poolTokens.length; i++) {
+            _startWeights[i] = bPool.getDenormalizedWeight(poolTokens[i]);
+        }
     } 
 
     /**
@@ -970,7 +1013,8 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
      */
     function createPoolInternal(uint initialSupply) internal {
         require(address(bPool) == address(0), "ERR_IS_CREATED");
-        require(initialSupply > 0, "ERR_INIT_SUPPLY");
+        require(initialSupply >= BalancerConstants.MIN_POOL_SUPPLY, "ERR_INIT_SUPPLY_MIN");
+        require(initialSupply <= BalancerConstants.MAX_POOL_SUPPLY, "ERR_INIT_SUPPLY_MAX");
 
         // If the controller can change the cap, initialize it to the initial supply
         // Defensive programming, so that there is no gap between creating the pool

@@ -81,7 +81,7 @@ contract('updateWeightsGradually', async (accounts) => {
             await weth.approve(CONTROLLER_ADDRESS, MAX);
             await xyz.approve(CONTROLLER_ADDRESS, MAX);
 
-            await controller.createPool(toWei('100'));
+            await controller.createPool(toWei('100'), 10, 10);
         });
 
         describe('configurableWeights - update gradually', () => {

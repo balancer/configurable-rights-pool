@@ -94,7 +94,7 @@ contract('configurableSwapFee', async (accounts) => {
         await dai.approve(CRPPOOL_ADDRESS, MAX);
         await xyz.approve(CRPPOOL_ADDRESS, MAX);
 
-        await crpPool.createPool(toWei('100'));
+        await crpPool.createPool(toWei('100'), 10, 10);
     });
 
     it('crpPool should have correct rights set', async () => {

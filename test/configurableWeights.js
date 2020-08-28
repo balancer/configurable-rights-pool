@@ -127,7 +127,9 @@ contract('configurableWeights', async (accounts) => {
             await dai.approve(CRPPOOL_ADDRESS, MAX);
             await xyz.approve(CRPPOOL_ADDRESS, MAX);
 
-            await crpPool.createPool(toWei('100'));
+            await crpPool.createPool(toWei('100'), 
+                                     minimumWeightChangeBlockPeriod,
+                                     minimumWeightChangeBlockPeriod);
         });
 
         it('crpPool should have correct rights set', async () => {
@@ -300,7 +302,9 @@ contract('configurableWeights', async (accounts) => {
             await dai.approve(CRPPOOL_ADDRESS, MAX);
             await xyz.approve(CRPPOOL_ADDRESS, MAX);
 
-            await crpPool.createPool(toWei('100'));
+            await crpPool.createPool(toWei('100'), 
+                                     minimumWeightChangeBlockPeriod,
+                                     minimumWeightChangeBlockPeriod);
         });
 
         it('Controller should be able to change weights (down) with updateWeight()', async () => {

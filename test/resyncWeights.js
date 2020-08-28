@@ -11,7 +11,7 @@ const truffleAssert = require('truffle-assertions');
 contract('elasticSupplyPool', async (accounts) => {
     const admin = accounts[0];
     const { toWei } = web3.utils;
-    const startWeights = [toWei('1'), toWei('1')];
+    const startWeights = [toWei('20'), toWei('20')];
     const MAX = web3.utils.toTwosComplement(-1);
 
     let crpFactory;
@@ -95,25 +95,12 @@ contract('elasticSupplyPool', async (accounts) => {
             // resync weights, safely calls gulp and adjusts weights
             // proportionally so that price does not move
             const spotPriceBefore = await bPool.getSpotPrice.call(dai.address, usdc.address);
-            const usdcWeightBefore = await bPool.getDenormalizedWeight.call(usdc.address);
-            const daiWeightBefore = await bPool.getDenormalizedWeight.call(dai.address);
-            const totalWeightBefore = await bPool.getTotalDenormalizedWeight.call();
 
             await crpPool.resyncWeight(dai.address);
 
             const spotPriceAfter = await bPool.getSpotPrice.call(dai.address, usdc.address);
-            const usdcWeightAfter = await bPool.getDenormalizedWeight.call(usdc.address);
-            const daiWeightAfter = await bPool.getDenormalizedWeight.call(dai.address);
-            const totalWeightAfter = await bPool.getTotalDenormalizedWeight.call();
 
             assert.equal(spotPriceBefore.toString(), spotPriceAfter.toString());
-            assert.equal(usdcWeightBefore.toString(), usdcWeightAfter.toString());
-
-            assert.equal(daiWeightBefore, toWei('1'));
-            assert.equal(daiWeightAfter, toWei('1.1'));
-
-            assert.equal(totalWeightBefore, toWei('2'));
-            assert.equal(totalWeightAfter, toWei('2.1'));
         });
 
         it('Should not allow calling updateWeight', async () => {

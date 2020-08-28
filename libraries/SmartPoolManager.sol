@@ -68,12 +68,7 @@ library SmartPoolManager {
         if (newWeight < currentWeight) {
             // This means the controller will withdraw tokens to keep price
             // So they need to redeem PCTokens
-            // This will raise the weight; check to make sure it doesn't go over the max
             deltaWeight = BalancerSafeMath.bsub(currentWeight, newWeight);
-
-            require(BalancerSafeMath.badd(totalWeight, deltaWeight) <= BalancerConstants.MAX_TOTAL_WEIGHT,
-                    "ERR_MAX_TOTAL_WEIGHT");
-
 
             // poolShares = totalSupply * (deltaWeight / totalWeight)
             poolShares = BalancerSafeMath.bmul(totalSupply,
@@ -238,6 +233,7 @@ library SmartPoolManager {
         require(BalancerSafeMath.badd(bPool.getTotalDenormalizedWeight(),
                                       denormalizedWeight) <= BalancerConstants.MAX_TOTAL_WEIGHT,
                 "ERR_MAX_TOTAL_WEIGHT");
+        require(balance >= BalancerConstants.MIN_BALANCE, "ERR_BALANCE_BELOW_MIN");
 
         newToken.addr = token;
         newToken.balance = balance;
@@ -331,10 +327,29 @@ library SmartPoolManager {
     }
 
     /**
+     * @notice Non ERC20-conforming tokens are problematic; don't allow them in pools
+     * @dev Will revert if invalid
+     * @param token - The prospective token to verify
+     */
+    function verifyTokenCompliance(address token) external {
+        verifyTokenComplianceInternal(token);
+    }
+
+    /**
+     * @notice Non ERC20-conforming tokens are problematic; don't allow them in pools
+     * @dev Will revert if invalid - overloaded to save space in the main contract
+     * @param tokens - The prospective tokens to verify
+     */
+    function verifyTokenCompliance(address[] calldata tokens) external {
+        for (uint i = 0; i < tokens.length; i++) {
+            verifyTokenComplianceInternal(tokens[i]);
+         }
+    }
+
+    /**
      * @notice Update weights in a predetermined way, between startBlock and endBlock,
      *         through external cals to pokeWeights
      * @param bPool - Core BPool the CRP is wrapping
-     * @param newToken - NewToken instance we're using to store the new token data (in CRP storage)
      * @param newWeights - final weights we want to get to
      * @param startBlock - when weights should start to change
      * @param endBlock - when weights will be at their final values
@@ -342,7 +357,6 @@ library SmartPoolManager {
     */
     function updateWeightsGradually(
         IBPool bPool,
-        NewToken storage newToken,
         uint[] calldata newWeights,
         uint startBlock,
         uint endBlock,
@@ -352,9 +366,6 @@ library SmartPoolManager {
         view
         returns (uint actualStartBlock, uint[] memory startWeights)
     {
-        // Don't start this when we're in the middle of adding a new token
-        require(!newToken.isCommitted, "ERR_PENDING_TOKEN_ADD");
-
         // Enforce a minimum time over which to make the changes
         // The also prevents endBlock <= startBlock
         require(BalancerSafeMath.bsub(endBlock, startBlock) >= minimumWeightChangeBlockPeriod,
@@ -430,8 +441,7 @@ library SmartPoolManager {
         for (uint i = 0; i < tokens.length; i++) {
             address t = tokens[i];
             uint bal = bPool.getBalance(t);
-            // Add 1 to ensure any rounding errors favor the pool
-            uint tokenAmountIn = BalancerSafeMath.bmul(ratio, bal + 1);
+            uint tokenAmountIn = BalancerSafeMath.bmul(ratio, bal);
 
             require(tokenAmountIn != 0, "ERR_MATH_APPROX");
             require(tokenAmountIn <= maxAmountsIn[i], "ERR_LIMIT_IN");
@@ -470,8 +480,8 @@ library SmartPoolManager {
         exitFee = BalancerSafeMath.bmul(poolAmountIn, BalancerConstants.EXIT_FEE);
         pAiAfterExitFee = BalancerSafeMath.bsub(poolAmountIn, exitFee);
 
-        // Subtract 1 to ensure any rounding errors favor the pool
-        uint ratio = BalancerSafeMath.bdiv(pAiAfterExitFee, poolTotal - 1);
+        // Division rounds down (favors the pool)
+        uint ratio = BalancerSafeMath.bdiv(pAiAfterExitFee, poolTotal);
 
         require(ratio != 0, "ERR_MATH_APPROX");
 
@@ -483,7 +493,7 @@ library SmartPoolManager {
             address t = tokens[i];
             uint bal = bPool.getBalance(t);
             // Subtract 1 to ensure any rounding errors favor the pool
-            uint tokenAmountOut = BalancerSafeMath.bmul(ratio, bal - 1);
+            uint tokenAmountOut = BalancerSafeMath.bmul(ratio, bal);
 
             require(tokenAmountOut != 0, "ERR_MATH_APPROX");
             require(tokenAmountOut >= minAmountsOut[i], "ERR_LIMIT_OUT");
@@ -650,5 +660,13 @@ library SmartPoolManager {
         require(poolAmountIn <= maxPoolAmountIn, "ERR_LIMIT_IN");
 
         exitFee = BalancerSafeMath.bmul(poolAmountIn, BalancerConstants.EXIT_FEE);
+    }
+
+    // Internal functions
+
+    // Check for zero transfer, and make sure it returns true to returnValue
+    function verifyTokenComplianceInternal(address token) internal {
+        bool returnValue = IERC20(token).transfer(msg.sender, 0);
+        require(returnValue, "ERR_NONCONFORMING_TOKEN");
     }
 }

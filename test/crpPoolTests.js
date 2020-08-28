@@ -127,7 +127,21 @@ contract('crpPoolTests', async (accounts) => {
     it('crpPool should not createPool with 0 BPT Initial Supply', async () => {
         await truffleAssert.reverts(
             crpPool.createPool(toWei('0')),
-            'ERR_INIT_SUPPLY',
+            'ERR_INIT_SUPPLY_MIN',
+        );
+    });
+
+    it('crpPool should not createPool with BPT Initial Supply < MIN', async () => {
+        await truffleAssert.reverts(
+            crpPool.createPool(toWei('10')),
+            'ERR_INIT_SUPPLY_MIN',
+        );
+    });
+
+    it('crpPool should not createPool with BPT Initial Supply > MAX', async () => {
+        await truffleAssert.reverts(
+            crpPool.createPool(toWei('1000000001')),
+            'ERR_INIT_SUPPLY_MAX',
         );
     });
 

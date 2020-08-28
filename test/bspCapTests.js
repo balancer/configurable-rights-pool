@@ -119,7 +119,7 @@ contract('BSP Cap', async (accounts) => {
     });
 
     it('ConfigurableRightsPool cap should be set to initial supply after creation', async () => {
-        await crpPool.createPool(toWei('100'));
+        await crpPool.createPool(toWei('100'), 10, 10);
 
         const cap = await crpPool.getCap.call();
         const supply = await crpPool.totalSupply.call();

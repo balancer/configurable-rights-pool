@@ -94,6 +94,7 @@ contract('crpPoolOverloadTests', async (accounts) => {
         await xyz.approve(CRPPOOL_ADDRESS, MAX);
     });
 
+    /* Removed minimums
     it('crpPool should not create pool with invalid minimumWeightChangeBlockPeriod', async () => {
         await truffleAssert.reverts(
             crpPool.createPool(toWei('100'), 5, 10),
@@ -106,17 +107,23 @@ contract('crpPoolOverloadTests', async (accounts) => {
             crpPool.createPool(toWei('100'), 10, 5),
             'ERR_INVALID_TOKEN_TIME_LOCK',
         );
-    });
+    });*/
 
     it('crpPool should not create pool with inconsistent time parameters', async () => {
         await truffleAssert.reverts(
-            crpPool.createPool(toWei('100'), 10, 20),
-            'ERR_INCONSISTENT_TOKEN_TIME_LOCK',
+            crpPool.createPool(toWei('100'), 10, 20), 'ERR_INCONSISTENT_TOKEN_TIME_LOCK',
+        );
+    });
+
+    it('crpPool should not create pool with negative time parameters', async () => {
+        await truffleAssert.reverts(
+            // 0 > -10, but still shouldn't work
+            crpPool.createPool(toWei('100'), 0, -10), 'ERR_INCONSISTENT_TOKEN_TIME_LOCK',
         );
     });
 
     it('crpPool should have a BPool after creation', async () => {
-        await crpPool.createPool(toWei('100'), 10, 10);
+        await crpPool.createPool(toWei('100'), 0, 0);
         const bPoolAddr = await crpPool.bPool();
         assert.notEqual(bPoolAddr, ZERO_ADDRESS);
         bPool = await BPool.at(bPoolAddr);

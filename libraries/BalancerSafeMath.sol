@@ -159,4 +159,24 @@ library BalancerSafeMath {
         // (a + b) / 2 can overflow, so we distribute
         return (a / 2) + (b / 2) + ((a % 2 + b % 2) / 2);
     }
+
+    /**
+     * @notice Babylonian square root implementation
+     * @dev (https://en.wikipedia.org/wiki/Methods_of_computing_square_roots#Babylonian_method)
+     * @param y - operand
+     * @return z - the square root result
+     */
+    function sqrt(uint y) internal pure returns (uint z) {
+        if (y > 3) {
+            z = y;
+            uint x = y / 2 + 1;
+            while (x < z) {
+                z = x;
+                x = (y / x + x) / 2;
+            }
+        }
+        else if (y != 0) {
+            z = 1;
+        }
+    }
 }

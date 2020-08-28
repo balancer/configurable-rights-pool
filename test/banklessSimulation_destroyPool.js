@@ -107,7 +107,7 @@ contract('Bankless Simulation (destroy pool)', async (accounts) => {
         await crpPool.approve(user2, MAX);
         await crpPool.approve(user3, MAX);
 
-        await crpPool.createPool(toWei(numPoolTokens));
+        await crpPool.createPool(toWei(numPoolTokens), 10, 10);
     });
 
     it('crpPool should have correct rights set', async () => {
@@ -370,7 +370,7 @@ contract('Bankless Simulation (destroy pool)', async (accounts) => {
         /* Disallow this for now
         it('Should allow creating another pool', async () => {
             await bap0.mint(admin, toWei('36'));
-            await crpPool.createPool(toWei(numPoolTokens));
+            await crpPool.createPool(toWei(numPoolTokens), 10, 10);
         });
 
         it('Should be able to poke weights (and buy shirts)', async () => {

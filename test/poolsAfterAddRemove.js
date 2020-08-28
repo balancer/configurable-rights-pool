@@ -111,7 +111,7 @@ contract('configurableAddRemoveTokens - join/exit after add', async (accounts) =
         await abc.approve(CRPPOOL_ADDRESS, MAX);
         await asd.approve(CRPPOOL_ADDRESS, MAX);
 
-        await crpPool.createPool(toWei('100'));
+        await crpPool.createPool(toWei('100'), 10, 10);
     });
 
     describe('JoinExit after add', () => {
