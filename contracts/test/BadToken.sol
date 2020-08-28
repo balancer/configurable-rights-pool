@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.6.6;
 
-
 contract BadToken {
     string internal _name;
     string internal _symbol;
@@ -22,13 +21,17 @@ contract BadToken {
     event Approval(address indexed src, address indexed dst, uint amt);
     event Transfer(address indexed src, address indexed dst, uint amt);
 
+    /* solhint-disable private-vars-leading-underscore */
+
     // Math
     function add(uint a, uint b) internal pure returns (uint c) {
-        require((c = a + b) >= a);
+        require((c = a + b) >= a, "ERR_ADD");
     }
     function sub(uint a, uint b) internal pure returns (uint c) {
-        require((c = a - b) <= a);
+        require((c = a - b) <= a, "ERR_SUB");
     }
+
+    /* solhint-disable func-order */
 
     constructor(
         string memory name,
@@ -126,6 +129,8 @@ contract BadToken {
         return true;
     }
 }
+
+/* solhint-disable no-empty-blocks */
 
 contract NoZeroXferToken is BadToken {
     constructor(
