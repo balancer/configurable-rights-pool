@@ -123,42 +123,36 @@ library SmartPoolManager {
     /**
      * @notice External function called to make the contract update weights according to plan
      * @param bPool - Core BPool the CRP is wrapping
-     * @param startBlock - when weights should start to change
-     * @param endBlock - when weights will be at their final values
-     * @param startWeights - current token weights
-     * @param newWeights - target token weights
+     * @param gradualUpdate - gradual update parameters from the CRP
     */
     function pokeWeights(
         IBPool bPool,
-        uint startBlock,
-        uint endBlock,
-        uint[] calldata startWeights,
-        uint[] calldata newWeights
+        ConfigurableRightsPool.GradualUpdateParams storage gradualUpdate
     )
         external
     {
         // Do nothing if we call this when there is no update plan
-        if (startBlock == 0) {
+        if (gradualUpdate.startBlock == 0) {
             return;
         }
 
         // Error to call it before the start of the plan
-        require(block.number >= startBlock, "ERR_CANT_POKE_YET");
+        require(block.number >= gradualUpdate.startBlock, "ERR_CANT_POKE_YET");
         // Proposed error message improvement
         // require(block.number >= startBlock, "ERR_NO_HOKEY_POKEY");
 
         // This allows for pokes after endBlock that get weights to endWeights
         // Get the current block (or the endBlock, if we're already past the end)
         uint currentBlock;
-        if (block.number > endBlock) {
-            currentBlock = endBlock;
+        if (block.number > gradualUpdate.endBlock) {
+            currentBlock = gradualUpdate.endBlock;
         }
         else {
             currentBlock = block.number;
         }
 
-        uint blockPeriod = BalancerSafeMath.bsub(endBlock, startBlock);
-        uint blocksElapsed = BalancerSafeMath.bsub(currentBlock, startBlock);
+        uint blockPeriod = BalancerSafeMath.bsub(gradualUpdate.endBlock, gradualUpdate.startBlock);
+        uint blocksElapsed = BalancerSafeMath.bsub(currentBlock, gradualUpdate.startBlock);
         uint weightDelta;
         uint deltaPerBlock;
         uint newWeight;
@@ -171,31 +165,33 @@ library SmartPoolManager {
             // Make sure it does nothing if the new and old weights are the same (saves gas)
             // It's a degenerate case if they're *all* the same, but you certainly could have
             // a plan where you only change some of the weights in the set
-            if (startWeights[i] != newWeights[i]) {
-                if (newWeights[i] < startWeights[i]) {
+            if (gradualUpdate.startWeights[i] != gradualUpdate.endWeights[i]) {
+                if (gradualUpdate.endWeights[i] < gradualUpdate.startWeights[i]) {
                     // We are decreasing the weight
 
                     // First get the total weight delta
-                    weightDelta = BalancerSafeMath.bsub(startWeights[i], newWeights[i]);
+                    weightDelta = BalancerSafeMath.bsub(gradualUpdate.startWeights[i],
+                                                        gradualUpdate.endWeights[i]);
                     // And the amount it should change per block = total change/number of blocks in the period
                     deltaPerBlock = BalancerSafeMath.bdiv(weightDelta, blockPeriod);
                     //deltaPerBlock = bdivx(weightDelta, blockPeriod);
 
                      // newWeight = startWeight - (blocksElapsed * deltaPerBlock)
-                    newWeight = BalancerSafeMath.bsub(startWeights[i],
+                    newWeight = BalancerSafeMath.bsub(gradualUpdate.startWeights[i],
                                                       BalancerSafeMath.bmul(blocksElapsed, deltaPerBlock));
                 }
                 else {
                     // We are increasing the weight
 
                     // First get the total weight delta
-                    weightDelta = BalancerSafeMath.bsub(newWeights[i], startWeights[i]);
+                    weightDelta = BalancerSafeMath.bsub(gradualUpdate.endWeights[i],
+                                                        gradualUpdate.startWeights[i]);
                     // And the amount it should change per block = total change/number of blocks in the period
                     deltaPerBlock = BalancerSafeMath.bdiv(weightDelta, blockPeriod);
                     //deltaPerBlock = bdivx(weightDelta, blockPeriod);
 
                      // newWeight = startWeight + (blocksElapsed * deltaPerBlock)
-                    newWeight = BalancerSafeMath.badd(startWeights[i],
+                    newWeight = BalancerSafeMath.badd(gradualUpdate.startWeights[i],
                                                       BalancerSafeMath.bmul(blocksElapsed, deltaPerBlock));
                 }
 
@@ -203,6 +199,11 @@ library SmartPoolManager {
 
                 bPool.rebind(tokens[i], bal, newWeight);
             }
+        }
+
+        // Reset to allow add/remove tokens, or manual weight updates
+        if (block.number >= gradualUpdate.endBlock) {
+            gradualUpdate.startBlock = 0;
         }
     }
 
@@ -357,14 +358,13 @@ library SmartPoolManager {
     */
     function updateWeightsGradually(
         IBPool bPool,
+        ConfigurableRightsPool.GradualUpdateParams storage gradualUpdate,
         uint[] calldata newWeights,
         uint startBlock,
         uint endBlock,
         uint minimumWeightChangeBlockPeriod
     )
         external
-        view
-        returns (uint actualStartBlock, uint[] memory startWeights)
     {
         // Enforce a minimum time over which to make the changes
         // The also prevents endBlock <= startBlock
@@ -378,7 +378,7 @@ library SmartPoolManager {
         require(newWeights.length == tokens.length, "ERR_START_WEIGHTS_MISMATCH");
 
         uint weightsSum = 0;
-        startWeights = new uint[](tokens.length);
+        gradualUpdate.startWeights = new uint[](tokens.length);
 
         // Check that endWeights are valid now to avoid reverting in a future pokeWeights call
         //
@@ -389,7 +389,7 @@ library SmartPoolManager {
             require(newWeights[i] >= BalancerConstants.MIN_WEIGHT, "ERR_WEIGHT_BELOW_MIN");
 
             weightsSum = BalancerSafeMath.badd(weightsSum, newWeights[i]);
-            startWeights[i] = bPool.getDenormalizedWeight(tokens[i]);
+            gradualUpdate.startWeights[i] = bPool.getDenormalizedWeight(tokens[i]);
         }
         require(weightsSum <= BalancerConstants.MAX_TOTAL_WEIGHT, "ERR_MAX_TOTAL_WEIGHT");
 
@@ -400,11 +400,14 @@ library SmartPoolManager {
             // Only valid within the startBlock - endBlock period!
             // Should not happen, but defensively check that we aren't
             // setting the start point past the end point
-            actualStartBlock = block.number;
+            gradualUpdate.startBlock = block.number;
         }
         else{
-            actualStartBlock = startBlock;
+            gradualUpdate.startBlock = startBlock;
         }
+
+        gradualUpdate.endBlock = endBlock;
+        gradualUpdate.endWeights = newWeights;
     }
 
     /**

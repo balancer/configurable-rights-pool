@@ -152,7 +152,7 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
         _;
     }
 
-    modifier locksUnderlyingPool() {
+    modifier lockUnderlyingPool() {
         // Turn off swapping on the underlying pool during joins
         // Otherwise tokens with callbacks would enable attacks involving simultaneous swaps and joins
         bool origSwapState = bPool.isPublicSwap();
@@ -418,20 +418,14 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
         
         // Library computes the startBlock, computes startWeights as the current
         // denormalized weights of the core pool tokens.
-        (uint actualStartBlock,
-         uint[] memory startWeights) = SmartPoolManager.updateWeightsGradually(
-                                           bPool,
-                                           newWeights,
-                                           startBlock,
-                                           endBlock,
-                                           minimumWeightChangeBlockPeriod
-                                       );
-        gradualUpdate.startBlock = actualStartBlock;
-        gradualUpdate.endBlock = endBlock;
-        gradualUpdate.endWeights = newWeights;
-
-        // Update this to ensure it's always in sync with the current tokens in the underlying pool
-        gradualUpdate.startWeights = startWeights;
+        SmartPoolManager.updateWeightsGradually(
+            bPool,
+            gradualUpdate,
+            newWeights,
+            startBlock,
+            endBlock,
+            minimumWeightChangeBlockPeriod
+        );
     }
 
     /**
@@ -448,21 +442,8 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
     {
         require(rights.canChangeWeights, "ERR_NOT_CONFIGURABLE_WEIGHTS");
 
-        // Don't modify state after external call (re-entrancy protection)
-        uint currentStartBlock = gradualUpdate.startBlock;
-        // Reset to allow add/remove tokens, or manual weight updates
-        if (block.number >= gradualUpdate.endBlock) {
-            gradualUpdate.startBlock = 0;
-        }
-
         // Delegate to library to save space
-        SmartPoolManager.pokeWeights(
-            bPool,
-            currentStartBlock,
-            gradualUpdate.endBlock,
-            gradualUpdate.startWeights,
-            gradualUpdate.endWeights
-        );
+        SmartPoolManager.pokeWeights(bPool, gradualUpdate);
     }
 
     /**
@@ -564,7 +545,7 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
         logs
         lock
         needsBPool
-        locksUnderlyingPool
+        lockUnderlyingPool
     {
         require(!rights.canWhitelistLPs || _liquidityProviderWhitelist[msg.sender],
                 "ERR_NOT_ON_WHITELIST");
@@ -700,7 +681,7 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
         logs
         lock
         needsBPool
-        locksUnderlyingPool
+        lockUnderlyingPool
         returns (uint tokenAmountIn)
     {
         require(!rights.canWhitelistLPs || _liquidityProviderWhitelist[msg.sender],
