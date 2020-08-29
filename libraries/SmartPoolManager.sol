@@ -374,6 +374,9 @@ library SmartPoolManager {
 
         address[] memory tokens = bPool.getCurrentTokens();
 
+        // Must specify weights for all tokens
+        require(newWeights.length == tokens.length, "ERR_START_WEIGHTS_MISMATCH");
+
         uint weightsSum = 0;
         startWeights = new uint[](tokens.length);
 
@@ -427,8 +430,9 @@ library SmartPoolManager {
         require(maxAmountsIn.length == tokens.length, "ERR_AMOUNTS_MISMATCH");
 
         uint poolTotal = self.totalSupply();
-        // Add 1 to ensure any rounding errors favor the pool
-        uint ratio = BalancerSafeMath.bdiv(poolAmountOut, poolTotal + 1);
+        // Subtract  1 to ensure any rounding errors favor the pool
+        uint ratio = BalancerSafeMath.bdiv(poolAmountOut,
+                                           BalancerSafeMath.bsub(poolTotal, 1));
 
         require(ratio != 0, "ERR_MATH_APPROX");
 
@@ -441,7 +445,9 @@ library SmartPoolManager {
         for (uint i = 0; i < tokens.length; i++) {
             address t = tokens[i];
             uint bal = bPool.getBalance(t);
-            uint tokenAmountIn = BalancerSafeMath.bmul(ratio, bal);
+            // Add 1 to ensure any rounding errors favor the pool
+            uint tokenAmountIn = BalancerSafeMath.bmul(ratio,
+                                                       BalancerSafeMath.badd(bal, 1));
 
             require(tokenAmountIn != 0, "ERR_MATH_APPROX");
             require(tokenAmountIn <= maxAmountsIn[i], "ERR_LIMIT_IN");
@@ -480,8 +486,8 @@ library SmartPoolManager {
         exitFee = BalancerSafeMath.bmul(poolAmountIn, BalancerConstants.EXIT_FEE);
         pAiAfterExitFee = BalancerSafeMath.bsub(poolAmountIn, exitFee);
 
-        // Division rounds down (favors the pool)
-        uint ratio = BalancerSafeMath.bdiv(pAiAfterExitFee, poolTotal);
+        uint ratio = BalancerSafeMath.bdiv(pAiAfterExitFee,
+                                           BalancerSafeMath.badd(poolTotal, 1));
 
         require(ratio != 0, "ERR_MATH_APPROX");
 
@@ -493,7 +499,8 @@ library SmartPoolManager {
             address t = tokens[i];
             uint bal = bPool.getBalance(t);
             // Subtract 1 to ensure any rounding errors favor the pool
-            uint tokenAmountOut = BalancerSafeMath.bmul(ratio, bal);
+            uint tokenAmountOut = BalancerSafeMath.bmul(ratio,
+                                                        BalancerSafeMath.bsub(bal, 1));
 
             require(tokenAmountOut != 0, "ERR_MATH_APPROX");
             require(tokenAmountOut >= minAmountsOut[i], "ERR_LIMIT_OUT");

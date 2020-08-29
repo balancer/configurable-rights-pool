@@ -229,7 +229,7 @@ contract PCToken is IERC20 {
 
     // Mint an amount of new tokens, and add them to the balance (and total supply)
     // Emit a transfer amount from the null address to this contract
-    function _mint(uint amount) internal {
+    function _mint(uint amount) internal virtual {
         _balance[address(this)] = BalancerSafeMath.badd(_balance[address(this)], amount);
         varTotalSupply = BalancerSafeMath.badd(varTotalSupply, amount);
 
@@ -238,7 +238,7 @@ contract PCToken is IERC20 {
 
     // Burn an amount of new tokens, and subtract them from the balance (and total supply)
     // Emit a transfer amount from this contract to the null address
-    function _burn(uint amount) internal {
+    function _burn(uint amount) internal virtual {
         // Can't burn more than we have
         // Remove require for gas optimization - bsub will revert on underflow
         // require(_balance[address(this)] >= amount, "ERR_INSUFFICIENT_BAL");
@@ -251,7 +251,7 @@ contract PCToken is IERC20 {
 
     // Transfer tokens from sender to recipient
     // Adjust balances, and emit a Transfer event
-    function _move(address sender, address recipient, uint amount) internal {
+    function _move(address sender, address recipient, uint amount) internal virtual {
         // Can't send more than sender has
         // Remove require for gas optimization - bsub will revert on underflow
         // require(_balance[sender] >= amount, "ERR_INSUFFICIENT_BAL");

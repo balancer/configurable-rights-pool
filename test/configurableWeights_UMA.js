@@ -92,6 +92,15 @@ contract('configurableWeightsUMA', async (accounts) => {
         });
 
         describe('configurableWeights only', () => {
+            it('Should not allow updateWeights with mismatch', async () => {
+                const endWeights = [toWei('39'), toWei('1'), toWei('10')];
+                const block = await web3.eth.getBlock('latest');
+               
+                truffleAssert.reverts(
+                    controller.updateWeightsGradually(endWeights, block.number, block.number + 20),
+                    'ERR_START_WEIGHTS_MISMATCH');
+            });
+
             it('Controller should be able to call updateWeightsGradually() with valid range', async () => {
                 blockRange = 20;
                 // get current block number
@@ -184,7 +193,7 @@ contract('configurableWeightsUMA', async (accounts) => {
 
             it('Should be able to pokeWeights() again', async () => {
                 let i;
-                const endWeights = [toWei('1'), toWei('29'), toWei('10')];
+                const endWeights = [toWei('1'), toWei('29')];
 
                 let block = await web3.eth.getBlock('latest');
                 console.log(`Block: ${block.number}`);                        
@@ -207,8 +216,8 @@ contract('configurableWeightsUMA', async (accounts) => {
                     // Try to adust weights with mismatched tokens
                     if (1 == i) {
                         truffleAssert.reverts(
-                          controller.updateWeightsGradually(endWeights, i, i+5),
-                          'ERR_START_WEIGHTS_MISMATCH');
+                          controller.updateWeightsGradually(endWeights, i, i+50),
+                          'ERR_GRADUAL_UPDATE_TIME_TRAVEL');
                     }
                 }
             });
