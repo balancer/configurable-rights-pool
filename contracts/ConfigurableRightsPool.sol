@@ -591,6 +591,7 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
         logs
         lock
         needsBPool
+        lockUnderlyingPool
     {
         // Delegate to library to save space
 
@@ -681,7 +682,6 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
         logs
         lock
         needsBPool
-        lockUnderlyingPool
         returns (uint tokenAmountIn)
     {
         require(!rights.canWhitelistLPs || _liquidityProviderWhitelist[msg.sender],
