@@ -120,7 +120,7 @@ contract('Bankless Simulation', async (accounts) => {
     });
 
     it('ConfigurableRightsPool cap should be initial supply after creation', async () => {
-        const cap = await crpPool.getCap.call();
+        const cap = await crpPool.bspCap();
         const supply = await crpPool.totalSupply.call();
 
         assert.equal(fromWei(cap), fromWei(supply));

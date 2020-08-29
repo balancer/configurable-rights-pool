@@ -21,7 +21,7 @@ import "./SafeApprove.sol";
 library SmartPoolManager {
     // Type declarations
 
-    struct NewToken {
+    struct NewTokenParams {
         address addr;
         bool isCommitted;
         uint commitBlock;
@@ -215,14 +215,14 @@ library SmartPoolManager {
      * @param token - the token to be added
      * @param balance - how much to be added
      * @param denormalizedWeight - the desired token weight
-     * @param newToken - NewToken struct used to hold the token data (in CRP storage)
+     * @param newToken - NewTokenParams struct used to hold the token data (in CRP storage)
      */
     function commitAddToken(
         IBPool bPool,
         address token,
         uint balance,
         uint denormalizedWeight,
-        NewToken storage newToken
+        NewTokenParams storage newToken
     )
         external
     {
@@ -247,13 +247,13 @@ library SmartPoolManager {
      * @param self - ConfigurableRightsPool instance calling the library
      * @param bPool - Core BPool the CRP is wrapping
      * @param addTokenTimeLockInBlocks -  Wait time between committing and applying a new token
-     * @param newToken - NewToken struct used to hold the token data (in CRP storage)
+     * @param newToken - NewTokenParams struct used to hold the token data (in CRP storage)
      */
     function applyAddToken(
         ConfigurableRightsPool self,
         IBPool bPool,
         uint addTokenTimeLockInBlocks,
-        NewToken storage newToken
+        NewTokenParams storage newToken
     )
         external
     {

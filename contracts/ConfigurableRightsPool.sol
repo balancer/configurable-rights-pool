@@ -55,6 +55,16 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
         uint swapFee;
     }
 
+    // For blockwise, automated weight updates
+    // Move weights linearly from startWeights to endWeights,
+    // between startBlock and endBlock
+    struct GradualUpdateParams {
+        uint startBlock;
+        uint endBlock;
+        uint[] startWeights;
+        uint[] endWeights;
+    }
+
     // State variables
 
     IBFactory public bFactory;
@@ -63,14 +73,17 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
     // Struct holding the rights configuration
     RightsManager.Rights public rights;
 
+    // Hold the parameters used in updateWeightsGradually
+    GradualUpdateParams public gradualUpdate;
+
     // This is for adding a new (currently unbound) token to the pool
     // It's a two-step process: commitAddToken(), then applyAddToken()
-    SmartPoolManager.NewToken private _newToken;
+    SmartPoolManager.NewTokenParams public newToken;
 
     // Fee is initialized on creation, and can be changed if permission is set
     // Only needed for temporary storage between construction and createPool
     // Thereafter, the swap fee should always be read from the underlying pool
-    uint private _swapFee;
+    uint private _initialSwapFee;
 
     // Store the list of tokens in the pool, and balances
     // NOTE that the token list is *only* used to store the pool tokens between
@@ -79,26 +92,18 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
     address[] private _initialTokens;
     uint[] private _initialBalances;
 
-    // For blockwise, automated weight updates
-    // Move weights linearly from _startWeights to _newWeights,
-    // between _startBlock and _endBlock
-    uint private _startBlock;
-    uint private _endBlock;
-    uint[] private _startWeights;
-    uint[] private _newWeights;
-
     // Enforce a minimum time between the start and end blocks
-    uint private _minimumWeightChangeBlockPeriod;
+    uint public minimumWeightChangeBlockPeriod;
     // Enforce a mandatory wait time between updates
     // This is also the wait time between committing and applying a new token
-    uint private _addTokenTimeLockInBlocks;
+    uint public addTokenTimeLockInBlocks;
 
     // Whitelist of LPs (if configured)
     mapping(address => bool) private _liquidityProviderWhitelist;
 
     // Cap on the pool size (i.e., # of tokens minted when joining)
     // Limits the risk of experimental pools; failsafe/backup for fixed-size pools
-    uint private _bspCap;
+    uint public bspCap;
 
     // Event declarations
 
@@ -145,6 +150,15 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
     modifier needsBPool() {
         require(address(bPool) != address(0), "ERR_NOT_CREATED");
         _;
+    }
+
+    modifier locksUnderlyingPool() {
+        // Turn off swapping on the underlying pool during joins
+        // Otherwise tokens with callbacks would enable attacks involving simultaneous swaps and joins
+        bool origSwapState = bPool.isPublicSwap();
+        bPool.setPublicSwap(false);
+        _;
+        bPool.setPublicSwap(origSwapState);
     }
 
     // Default values for these variables (used only in updateWeightsGradually), set in the constructor
@@ -198,15 +212,17 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
         rights = rightsStruct;
         _initialTokens = poolParams.constituentTokens;
         _initialBalances = poolParams.tokenBalances;
-        _startWeights = poolParams.tokenWeights;
-        _swapFee = poolParams.swapFee;
+        _initialSwapFee = poolParams.swapFee;
+
         // These default block time parameters can be overridden in createPool
-        _minimumWeightChangeBlockPeriod = DEFAULT_MIN_WEIGHT_CHANGE_BLOCK_PERIOD;
-        _addTokenTimeLockInBlocks = DEFAULT_ADD_TOKEN_TIME_LOCK_IN_BLOCKS;
+        minimumWeightChangeBlockPeriod = DEFAULT_MIN_WEIGHT_CHANGE_BLOCK_PERIOD;
+        addTokenTimeLockInBlocks = DEFAULT_ADD_TOKEN_TIME_LOCK_IN_BLOCKS;
+        
+        gradualUpdate.startWeights = poolParams.tokenWeights;
         // Initializing (unnecessarily) for documentation - 0 means no gradual weight change has been initiated
-        _startBlock = 0;
+        gradualUpdate.startBlock = 0;
         // By default, there is no cap (unlimited pool token minting)
-        _bspCap = BalancerConstants.MAX_UINT;
+        bspCap = BalancerConstants.MAX_UINT;
     }
 
     // External functions
@@ -226,12 +242,6 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
         virtual
     {
         require(rights.canChangeSwapFee, "ERR_NOT_CONFIGURABLE_SWAP_FEE");
-
-        // Like the _token list, this is only needed between construction and createPool
-        // The _token list is destroyed in createPool to prevent later use, but _swapFee
-        // is just a uint, so keep it in sync defensively, but always read from the
-        // underlying pool after it's created
-        _swapFee = swapFee;
 
         // Underlying pool will check against min/max fee
         bPool.setSwapFee(swapFee);
@@ -255,18 +265,6 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
     }
 
     /**
-     * @notice Getter for the cap
-     * @return current value of the cap
-     */
-    function getCap()
-        external
-        lock
-        returns (uint)
-    {
-        return _bspCap;
-    }
-
-    /**
      * @notice Set the cap (max # of pool tokens)
      * @dev _bspCap defaults in the constructor to unlimited
      *      Can set to 0 (or anywhere below the current supply), to halt new investment
@@ -284,9 +282,9 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
     {
         require(rights.canChangeCap, "ERR_CANNOT_CHANGE_CAP");
 
-        emit CapChanged(msg.sender, _bspCap, newCap);
+        emit CapChanged(msg.sender, bspCap, newCap);
 
-        _bspCap = newCap;
+        bspCap = newCap;
     }
 
     /**
@@ -323,25 +321,25 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
      *      values, the block time arguments are not needed, and you can just call the single-argument
      *      createPool()
      * @param initialSupply - Starting token balance
-     * @param minimumWeightChangeBlockPeriod - Enforce a minimum time between the start and end blocks
-     * @param addTokenTimeLockInBlocks - Enforce a mandatory wait time between updates
+     * @param minimumWeightChangeBlockPeriodParam - Enforce a minimum time between the start and end blocks
+     * @param addTokenTimeLockInBlocksParam - Enforce a mandatory wait time between updates
      *                                   This is also the wait time between committing and applying a new token
      */
     function createPool(
         uint initialSupply,
-        uint minimumWeightChangeBlockPeriod,
-        uint addTokenTimeLockInBlocks
+        uint minimumWeightChangeBlockPeriodParam,
+        uint addTokenTimeLockInBlocksParam
     )
         external
         logs
         lock
         virtual
     {
-        require (minimumWeightChangeBlockPeriod >= addTokenTimeLockInBlocks,
+        require (minimumWeightChangeBlockPeriodParam >= addTokenTimeLockInBlocksParam,
                 "ERR_INCONSISTENT_TOKEN_TIME_LOCK");
  
-        _minimumWeightChangeBlockPeriod = minimumWeightChangeBlockPeriod;
-        _addTokenTimeLockInBlocks = addTokenTimeLockInBlocks;
+        minimumWeightChangeBlockPeriod = minimumWeightChangeBlockPeriodParam;
+        addTokenTimeLockInBlocks = addTokenTimeLockInBlocksParam;
 
         createPoolInternal(initialSupply);
     }
@@ -379,7 +377,7 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
         require(rights.canChangeWeights, "ERR_NOT_CONFIGURABLE_WEIGHTS");
 
         // We don't want people to set weights manually if there's a block-based update in progress
-        require(_startBlock == 0, "ERR_NO_UPDATE_DURING_GRADUAL");
+        require(gradualUpdate.startBlock == 0, "ERR_NO_UPDATE_DURING_GRADUAL");
 
         // Delegate to library to save space
         SmartPoolManager.updateWeight(this, bPool, token, newWeight);
@@ -414,7 +412,7 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
     {
         require(rights.canChangeWeights, "ERR_NOT_CONFIGURABLE_WEIGHTS");
          // Don't start this when we're in the middle of adding a new token
-        require(!_newToken.isCommitted, "ERR_PENDING_TOKEN_ADD");
+        require(!newToken.isCommitted, "ERR_PENDING_TOKEN_ADD");
         
         // Library computes the startBlock, computes startWeights as the current
         // denormalized weights of the core pool tokens.
@@ -424,13 +422,14 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
                                            newWeights,
                                            startBlock,
                                            endBlock,
-                                           _minimumWeightChangeBlockPeriod
+                                           minimumWeightChangeBlockPeriod
                                        );
-        _startBlock = actualStartBlock;
-        _endBlock = endBlock;
-        _newWeights = newWeights;
+        gradualUpdate.startBlock = actualStartBlock;
+        gradualUpdate.endBlock = endBlock;
+        gradualUpdate.endWeights = newWeights;
 
-        _startWeights = startWeights;
+        // Update this to ensure it's always in sync with the current tokens in the underlying pool
+        gradualUpdate.startWeights = startWeights;
     }
 
     /**
@@ -448,19 +447,19 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
         require(rights.canChangeWeights, "ERR_NOT_CONFIGURABLE_WEIGHTS");
 
         // Don't modify state after external call (re-entrancy protection)
-        uint currentStartBlock = _startBlock;
+        uint currentStartBlock = gradualUpdate.startBlock;
         // Reset to allow add/remove tokens, or manual weight updates
-        if (block.number >= _endBlock) {
-            _startBlock = 0;
+        if (block.number >= gradualUpdate.endBlock) {
+            gradualUpdate.startBlock = 0;
         }
 
         // Delegate to library to save space
         SmartPoolManager.pokeWeights(
             bPool,
             currentStartBlock,
-            _endBlock,
-            _startWeights,
-            _newWeights
+            gradualUpdate.endBlock,
+            gradualUpdate.startWeights,
+            gradualUpdate.endWeights
         );
     }
 
@@ -492,7 +491,7 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
         require(rights.canAddRemoveTokens, "ERR_CANNOT_ADD_REMOVE_TOKENS");
 
         // Can't do this while a progressive update is happening
-        require(_startBlock == 0, "ERR_NO_UPDATE_DURING_GRADUAL");
+        require(gradualUpdate.startBlock == 0, "ERR_NO_UPDATE_DURING_GRADUAL");
 
         SmartPoolManager.verifyTokenCompliance(token);
 
@@ -504,7 +503,7 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
             token,
             balance,
             denormalizedWeight,
-            _newToken
+            newToken
         );
     }
 
@@ -525,8 +524,8 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
         SmartPoolManager.applyAddToken(
             this,
             bPool,
-            _addTokenTimeLockInBlocks,
-            _newToken
+            addTokenTimeLockInBlocks,
+            newToken
         );
     }
 
@@ -545,7 +544,7 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
         // It's possible to have remove rights without having add rights
         require(rights.canAddRemoveTokens,"ERR_CANNOT_ADD_REMOVE_TOKENS");
         // After createPool, token list is maintained in the underlying BPool
-        require(!_newToken.isCommitted, "ERR_REMOVE_WITH_ADD_PENDING");
+        require(!newToken.isCommitted, "ERR_REMOVE_WITH_ADD_PENDING");
 
         // Delegate to library to save space
         SmartPoolManager.removeToken(this, bPool, token);
@@ -563,6 +562,7 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
         logs
         lock
         needsBPool
+        locksUnderlyingPool
     {
         require(!rights.canWhitelistLPs || _liquidityProviderWhitelist[msg.sender],
                 "ERR_NOT_ON_WHITELIST");
@@ -583,11 +583,6 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
         // After createPool, token list is maintained in the underlying BPool
         address[] memory poolTokens = bPool.getCurrentTokens();
 
-        // Turn off swapping on the underlying pool during joins
-        // Otherwise tokens with callbacks would enable attacks involving simultaneous swaps and joins
-        bool origSwapState = bPool.isPublicSwap();
-        bPool.setPublicSwap(false);
-
         for (uint i = 0; i < poolTokens.length; i++) {
             address t = poolTokens[i];
             uint tokenAmountIn = actualAmountsIn[i];
@@ -599,8 +594,6 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
 
         _mintPoolShare(poolAmountOut);
         _pushPoolShare(msg.sender, poolAmountOut);
-
-        bPool.setPublicSwap(origSwapState);
     }
 
     /**
@@ -678,18 +671,11 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
                             minPoolAmountOut
                         );
 
-        // Turn off swapping on the underlying pool during joins
-        // Otherwise tokens with callbacks would enable attacks involving simultaneous swaps and joins
-        bool origSwapState = bPool.isPublicSwap();
-        bPool.setPublicSwap(false);
-
         emit LogJoin(msg.sender, tokenIn, tokenAmountIn);
 
         _mintPoolShare(poolAmountOut);
         _pushPoolShare(msg.sender, poolAmountOut);
         _pullUnderlying(tokenIn, msg.sender, tokenAmountIn);
-
-        bPool.setPublicSwap(origSwapState);
 
         return poolAmountOut;
     }
@@ -712,6 +698,7 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
         logs
         lock
         needsBPool
+        locksUnderlyingPool
         returns (uint tokenAmountIn)
     {
         require(!rights.canWhitelistLPs || _liquidityProviderWhitelist[msg.sender],
@@ -726,18 +713,11 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
                             maxAmountIn
                         );
 
-        // Turn off swapping on the underlying pool during joins
-        // Otherwise tokens with callbacks would enable attacks involving simultaneous swaps and joins
-        bool origSwapState = bPool.isPublicSwap();
-        bPool.setPublicSwap(false);
-
         emit LogJoin(msg.sender, tokenIn, tokenAmountIn);
 
         _mintPoolShare(poolAmountOut);
         _pushPoolShare(msg.sender, poolAmountOut);
         _pullUnderlying(tokenIn, msg.sender, tokenAmountIn);
-
-        bPool.setPublicSwap(origSwapState);
 
         return tokenAmountIn;
     }
@@ -976,11 +956,6 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
     // Lint wants the function to have a leading underscore too
     /* solhint-disable private-vars-leading-underscore */
 
-    // Accessor to allow subclasses to check the start block
-    function getStartBlock() internal view returns (uint) {
-        return _startBlock;
-    }
-
     /**
      * @notice Create a new Smart Pool
      * @dev Initialize the swap fee to the value provided in the CRP constructor
@@ -997,7 +972,7 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
         // (initialized to unlimited in the constructor), and setting the cap,
         // which they will presumably do if they have this right.
         if (rights.canChangeCap) {
-            _bspCap = initialSupply;
+            bspCap = initialSupply;
         }
 
         // There is technically reentrancy here, since we're making external calls and
@@ -1017,7 +992,7 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
         for (uint i = 0; i < _initialTokens.length; i++) {
             address t = _initialTokens[i];
             uint bal = _initialBalances[i];
-            uint denorm = _startWeights[i];
+            uint denorm = gradualUpdate.startWeights[i];
 
             bool returnValue = IERC20(t).transferFrom(msg.sender, address(this), bal);
             require(returnValue, "ERR_ERC20_FALSE");
@@ -1036,8 +1011,11 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
 
         // Set fee to the initial value set in the constructor
         // Hereafter, read the swapFee from the underlying pool, not the local state variable
-        bPool.setSwapFee(_swapFee);
+        bPool.setSwapFee(_initialSwapFee);
         bPool.setPublicSwap(true);
+
+        // "destroy" the temporary swap fee (like _initialTokens above) in case a subclass tries to use it
+        _initialSwapFee = 0;
     }
 
     /* solhint-enable private-vars-leading-underscore */
@@ -1071,7 +1049,7 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
     // 
     function _mint(uint amount) internal override {
         super._mint(amount);
-        require(varTotalSupply <= _bspCap, "ERR_CAP_LIMIT_REACHED");
+        require(varTotalSupply <= bspCap, "ERR_CAP_LIMIT_REACHED");
     }
 
     function _mintPoolShare(uint amount) internal {

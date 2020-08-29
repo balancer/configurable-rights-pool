@@ -188,7 +188,7 @@ contract ElasticSupplyPool is ConfigurableRightsPool {
         needsBPool
         virtual
     {
-        require(ConfigurableRightsPool.getStartBlock() == 0, "ERR_NO_UPDATE_DURING_GRADUAL");
+        require(gradualUpdate.startBlock == 0, "ERR_NO_UPDATE_DURING_GRADUAL");
         require(IBPool(address(bPool)).isBound(token), "ERR_NOT_BOUND");
 
         // get cached balance

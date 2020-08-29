@@ -124,7 +124,7 @@ contract('Bankless Simulation (destroy pool)', async (accounts) => {
     });
 
     it('ConfigurableRightsPool cap should be MAX after creation', async () => {
-        const currentCap = await crpPool.getCap.call();
+        const currentCap = await crpPool.bspCap();
         assert.equal(MaxBig256, fromWei(currentCap).toString());
     });
 
