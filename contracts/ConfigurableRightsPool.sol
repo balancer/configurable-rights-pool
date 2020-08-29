@@ -331,6 +331,7 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
         uint addTokenTimeLockInBlocksParam
     )
         external
+        onlyOwner
         logs
         lock
         virtual
@@ -351,6 +352,7 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
      */
     function createPool(uint initialSupply)
         external
+        onlyOwner
         logs
         lock
         virtual

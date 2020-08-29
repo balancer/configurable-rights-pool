@@ -145,6 +145,20 @@ contract('crpPoolTests', async (accounts) => {
         );
     });
 
+    it('Non controller should not be able to createPool', async () => {
+        await truffleAssert.reverts(
+            crpPool.createPool(toWei('100'), {from: user1}),
+            'ERR_NOT_CONTROLLER',
+        );
+    });
+
+    it('Non controller should not be able to createPool (with time params)', async () => {
+        await truffleAssert.reverts(
+            crpPool.createPool(toWei('100', 0, 0), {from: user1}),
+            'ERR_NOT_CONTROLLER',
+        );
+    });
+
     it('crpPool should have a BPool after creation', async () => {
         await crpPool.createPool(toWei('100'));
         const bPoolAddr = await crpPool.bPool();
