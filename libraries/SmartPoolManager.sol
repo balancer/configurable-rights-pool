@@ -7,9 +7,8 @@ pragma experimental ABIEncoderV2;
 // Imports
 
 import "../interfaces/IERC20.sol";
-import "../contracts/ConfigurableRightsPool.sol";
+import "../interfaces/IConfigurableRightsPool.sol";
 import "../contracts/IBFactory.sol";
-import "./BalancerConstants.sol";
 import "./BalancerSafeMath.sol";
 import "./SafeApprove.sol";
 
@@ -29,6 +28,16 @@ library SmartPoolManager {
         uint balance;
     }
 
+    // For blockwise, automated weight updates
+    // Move weights linearly from startWeights to endWeights,
+    // between startBlock and endBlock
+    struct GradualUpdateParams {
+        uint startBlock;
+        uint endBlock;
+        uint[] startWeights;
+        uint[] endWeights;
+    }
+
     // updateWeight and pokeWeights are unavoidably long
     /* solhint-disable function-max-lines */
 
@@ -41,7 +50,7 @@ library SmartPoolManager {
      * @param newWeight - new weight of the token
     */
     function updateWeight(
-        ConfigurableRightsPool self,
+        IConfigurableRightsPool self,
         IBPool bPool,
         address token,
         uint newWeight
@@ -127,7 +136,7 @@ library SmartPoolManager {
     */
     function pokeWeights(
         IBPool bPool,
-        ConfigurableRightsPool.GradualUpdateParams storage gradualUpdate
+        GradualUpdateParams storage gradualUpdate
     )
         external
     {
@@ -251,7 +260,7 @@ library SmartPoolManager {
      * @param newToken - NewTokenParams struct used to hold the token data (in CRP storage)
      */
     function applyAddToken(
-        ConfigurableRightsPool self,
+        IConfigurableRightsPool self,
         IBPool bPool,
         uint addTokenTimeLockInBlocks,
         NewTokenParams storage newToken
@@ -299,7 +308,7 @@ library SmartPoolManager {
      * @param token - token to remove
      */
     function removeToken(
-        ConfigurableRightsPool self,
+        IConfigurableRightsPool self,
         IBPool bPool,
         address token
     )
@@ -358,7 +367,7 @@ library SmartPoolManager {
     */
     function updateWeightsGradually(
         IBPool bPool,
-        ConfigurableRightsPool.GradualUpdateParams storage gradualUpdate,
+        GradualUpdateParams storage gradualUpdate,
         uint[] calldata newWeights,
         uint startBlock,
         uint endBlock,
@@ -419,7 +428,7 @@ library SmartPoolManager {
      * @return actualAmountsIn - calculated values of the tokens to pull in
      */
     function joinPool(
-        ConfigurableRightsPool self,
+        IConfigurableRightsPool self,
         IBPool bPool,
         uint poolAmountOut,
         uint[] calldata maxAmountsIn
@@ -470,7 +479,7 @@ library SmartPoolManager {
      * @return actualAmountsOut - calculated amounts of each token to pull
      */
     function exitPool(
-        ConfigurableRightsPool self,
+        IConfigurableRightsPool self,
         IBPool bPool,
         uint poolAmountIn,
         uint[] calldata minAmountsOut
@@ -523,7 +532,7 @@ library SmartPoolManager {
      * @return poolAmountOut - amount of pool tokens minted and transferred
      */
     function joinswapExternAmountIn(
-        ConfigurableRightsPool self,
+        IConfigurableRightsPool self,
         IBPool bPool,
         address tokenIn,
         uint tokenAmountIn,
@@ -561,7 +570,7 @@ library SmartPoolManager {
      * @return tokenAmountIn - amount of asset tokens transferred in to purchase the pool tokens
      */
     function joinswapPoolAmountOut(
-        ConfigurableRightsPool self,
+        IConfigurableRightsPool self,
         IBPool bPool,
         address tokenIn,
         uint poolAmountOut,
@@ -602,7 +611,7 @@ library SmartPoolManager {
      * @return tokenAmountOut - amount of asset tokens returned
      */
     function exitswapPoolAmountIn(
-        ConfigurableRightsPool self,
+        IConfigurableRightsPool self,
         IBPool bPool,
         address tokenOut,
         uint poolAmountIn,
@@ -643,7 +652,7 @@ library SmartPoolManager {
      * @return poolAmountIn - amount of pool tokens redeemed
      */
     function exitswapExternAmountOut(
-        ConfigurableRightsPool self,
+        IConfigurableRightsPool self,
         IBPool bPool,
         address tokenOut,
         uint tokenAmountOut,

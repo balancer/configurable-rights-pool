@@ -10,12 +10,12 @@ import "../IBFactory.sol";
 import "../PCToken.sol";
 import "../utils/BalancerReentrancyGuard.sol";
 import "../utils/BalancerOwnable.sol";
+import "../ConfigurableRightsPool.sol";
 
 // Interfaces
 
 // Libraries
 import { RightsManager } from "../../libraries/RightsManager.sol";
-import "../../libraries/SmartPoolManager.sol";
 
 // Contracts
 

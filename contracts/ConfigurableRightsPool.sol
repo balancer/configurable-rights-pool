@@ -55,16 +55,6 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
         uint swapFee;
     }
 
-    // For blockwise, automated weight updates
-    // Move weights linearly from startWeights to endWeights,
-    // between startBlock and endBlock
-    struct GradualUpdateParams {
-        uint startBlock;
-        uint endBlock;
-        uint[] startWeights;
-        uint[] endWeights;
-    }
-
     // State variables
 
     IBFactory public bFactory;
@@ -74,7 +64,7 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
     RightsManager.Rights public rights;
 
     // Hold the parameters used in updateWeightsGradually
-    GradualUpdateParams public gradualUpdate;
+    SmartPoolManager.GradualUpdateParams public gradualUpdate;
 
     // This is for adding a new (currently unbound) token to the pool
     // It's a two-step process: commitAddToken(), then applyAddToken()
@@ -382,7 +372,7 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
         require(gradualUpdate.startBlock == 0, "ERR_NO_UPDATE_DURING_GRADUAL");
 
         // Delegate to library to save space
-        SmartPoolManager.updateWeight(this, bPool, token, newWeight);
+        SmartPoolManager.updateWeight(IConfigurableRightsPool(address(this)), bPool, token, newWeight);
     }
 
     /**
@@ -505,7 +495,7 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
 
         // Delegate to library to save space
         SmartPoolManager.applyAddToken(
-            this,
+            IConfigurableRightsPool(address(this)),
             bPool,
             addTokenTimeLockInBlocks,
             newToken
@@ -530,7 +520,7 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
         require(!newToken.isCommitted, "ERR_REMOVE_WITH_ADD_PENDING");
 
         // Delegate to library to save space
-        SmartPoolManager.removeToken(this, bPool, token);
+        SmartPoolManager.removeToken(IConfigurableRightsPool(address(this)), bPool, token);
     } 
 
     /**
@@ -557,7 +547,7 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
         // any of these pool functions. Since msg.sender can be anybody,
         // they must be internal
         uint[] memory actualAmountsIn = SmartPoolManager.joinPool(
-                                            this,
+                                            IConfigurableRightsPool(address(this)),
                                             bPool,
                                             poolAmountOut,
                                             maxAmountsIn
@@ -600,7 +590,7 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
         (uint exitFee,
          uint pAiAfterExitFee,
          uint[] memory actualAmountsOut) = SmartPoolManager.exitPool(
-                                               this,
+                                               IConfigurableRightsPool(address(this)),
                                                bPool,
                                                poolAmountIn,
                                                minAmountsOut
@@ -648,7 +638,7 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
 
         // Delegate to library to save space
         poolAmountOut = SmartPoolManager.joinswapExternAmountIn(
-                            this,
+                            IConfigurableRightsPool(address(this)),
                             bPool,
                             tokenIn,
                             tokenAmountIn,
@@ -689,7 +679,7 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
 
         // Delegate to library to save space
         tokenAmountIn = SmartPoolManager.joinswapPoolAmountOut(
-                            this,
+                            IConfigurableRightsPool(address(this)),
                             bPool,
                             tokenIn,
                             poolAmountOut,
@@ -730,7 +720,7 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
         // Calculates final amountOut, and the fee and final amount in
         (uint exitFee,
          uint amountOut) = SmartPoolManager.exitswapPoolAmountIn(
-                               this,
+                               IConfigurableRightsPool(address(this)),
                                bPool,
                                tokenOut,
                                poolAmountIn,
@@ -775,7 +765,7 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
         // Calculates final amounts in, accounting for the exit fee
         (uint exitFee,
          uint amountIn) = SmartPoolManager.exitswapExternAmountOut(
-                              this,
+                              IConfigurableRightsPool(address(this)),
                               bPool,
                               tokenOut,
                               tokenAmountOut,

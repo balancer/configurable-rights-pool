@@ -1,3 +1,5 @@
+var HDWalletProvider = require("truffle-hdwallet-provider");
+
 module.exports = {
     networks: {
         development: {
@@ -13,6 +15,19 @@ module.exports = {
             gas: 0xfffffffffff,
             gasPrice: 0x01,
         },
+        kovan: {
+            provider: () => new HDWalletProvider(process.env.MNEMONIC, "https://kovan.infura.io/v3/" + process.env.INFURA_API_KEY),
+            network_id: 42,
+            gas: 10000000,
+            gasPrice: 20000000000, // 20 Gwei
+        },
+        mainnet: {
+            provider: () => new HDWalletProvider(process.env.MNEMONIC, "https://mainnet.infura.io/v3/" + process.env.INFURA_API_KEY),
+            network_id: 1,
+            gas: 10000000,
+            timeoutBlocks: 500,
+            gasPrice: 100000000000, // 100 Gwei
+        },
     },
     // Configure your compilers
     compilers: {
@@ -26,5 +41,11 @@ module.exports = {
                 evmVersion: 'istanbul',
             },
         },
+    },
+    plugins: [
+        'truffle-plugin-verify'
+    ],
+    api_keys: {
+        etherscan: process.env.ETHERSCAN_API_KEY,
     },
 };
