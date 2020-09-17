@@ -462,7 +462,7 @@ contract('configurableWeights', async (accounts) => {
         });
 
         it('Should not be able to call updateWeightsGradually() with invalid weights', async () => {
-            const blockRange = minimumWeightChangeBlockPeriod;
+            const blockRange = minimumWeightChangeBlockPeriod + 5;
             const block = await web3.eth.getBlock('latest');
             const startBlock = block.number;
             const endBlock = startBlock + blockRange;

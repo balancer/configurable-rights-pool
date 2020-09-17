@@ -111,6 +111,30 @@ contract('crpPoolTests', async (accounts) => {
         assert.equal(controllerAddr, admin);
     });
 
+    if('crpPool should not allow changing controller from non-admin', async () => {
+        await truffleAssert.reverts(
+            crpPool.setController(user1, {from: user1}),
+            "ERR_NOT_CONTROLLER"
+        );
+    });
+
+    if('crpPool should not allow changing controller to zero', async () => {
+        await truffleAssert.reverts(
+            crpPool.setController(ZERO_ADDRESS),
+            "ERR_ZERO_ADDRESS"
+        );
+    });
+
+    if('crpPool should allow changing controller by admin', async () => {
+        await crpPool.setController(user1);
+        let controllerAddr = await crpPool.getController.call();
+        assert.equal(controllerAddr, user1);
+
+        await crpPool.setController(admin);
+        controllerAddr = await crpPool.getController.call();
+        assert.equal(controllerAddr, admin);
+    });
+
     it('crpPool should have all rights set to true', async () => {
         let x;
         for (x = 0; x < permissions.length; x++) {

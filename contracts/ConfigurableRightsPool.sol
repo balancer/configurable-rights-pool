@@ -518,6 +518,8 @@ contract ConfigurableRightsPool is PCToken, BalancerOwnable, BalancerReentrancyG
         require(rights.canAddRemoveTokens,"ERR_CANNOT_ADD_REMOVE_TOKENS");
         // After createPool, token list is maintained in the underlying BPool
         require(!newToken.isCommitted, "ERR_REMOVE_WITH_ADD_PENDING");
+        // Prevent removing during an update (or token lists can get out of sync)
+        require(gradualUpdate.startBlock == 0, "ERR_NO_UPDATE_DURING_GRADUAL");
 
         // Delegate to library to save space
         SmartPoolManager.removeToken(IConfigurableRightsPool(address(this)), bPool, token);

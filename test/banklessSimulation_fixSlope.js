@@ -239,7 +239,7 @@ contract('Bankless Simulation (mid-stream adjustment)', async (accounts) => {
 
             const startBlock = await web3.eth.getBlock('latest');
             console.log(`Block of updateWeightsGradually() call: ${startBlock.number}`);
-            const endBlock = startBlock.number + 10; // 10 is the minimum
+            const endBlock = startBlock.number + 12; // 10 is the minimum
             const adjustmentEndWeights = [toWei(newDaiWeight.toString()), toWei(newBap0Weight.toString())];
             console.log(`Start block for fast adjustment: ${startBlock.number}`);
             console.log(`End   block for fast adjustment: ${endBlock}`);

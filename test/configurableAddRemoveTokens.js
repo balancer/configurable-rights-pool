@@ -282,7 +282,7 @@ contract('configurableAddRemoveTokens', async (accounts) => {
         const endWeights = [toWei('12'), toWei('1.5'), toWei('1.5'), toWei('1.5')];
         let block = await web3.eth.getBlock('latest');
         const startBlock = block.number;
-        const endBlock = startBlock + 10;
+        const endBlock = startBlock + 12;
 
         await crpPool.updateWeightsGradually(endWeights, startBlock, endBlock);
 
@@ -418,7 +418,7 @@ contract('configurableAddRemoveTokens', async (accounts) => {
         const endWeights = [toWei('3'), toWei('4.5')];
         let block = await web3.eth.getBlock('latest');
         const startBlock = block.number;
-        const endBlock = startBlock + 10;
+        const endBlock = startBlock + 12;
 
         await crpPool.updateWeightsGradually(endWeights, startBlock, endBlock);
 

@@ -375,11 +375,21 @@ library SmartPoolManager {
     )
         external
     {
+        require(block.number < endBlock, "ERR_GRADUAL_UPDATE_TIME_TRAVEL");
+        
+        if (block.number > startBlock) {
+            // This means the weight update should start ASAP
+            // Moving the start block up prevents a big jump/discontinuity in the weights
+            gradualUpdate.startBlock = block.number;
+        }
+        else{
+            gradualUpdate.startBlock = startBlock;
+        }
+
         // Enforce a minimum time over which to make the changes
         // The also prevents endBlock <= startBlock
-        require(BalancerSafeMath.bsub(endBlock, startBlock) >= minimumWeightChangeBlockPeriod,
+        require(BalancerSafeMath.bsub(endBlock, gradualUpdate.startBlock) >= minimumWeightChangeBlockPeriod,
                 "ERR_WEIGHT_CHANGE_TIME_BELOW_MIN");
-        require(block.number < endBlock, "ERR_GRADUAL_UPDATE_TIME_TRAVEL");
 
         address[] memory tokens = bPool.getCurrentTokens();
 
@@ -401,19 +411,6 @@ library SmartPoolManager {
             gradualUpdate.startWeights[i] = bPool.getDenormalizedWeight(tokens[i]);
         }
         require(weightsSum <= BalancerConstants.MAX_TOTAL_WEIGHT, "ERR_MAX_TOTAL_WEIGHT");
-
-        if (block.number > startBlock && block.number < endBlock) {
-            // This means the weight update should start ASAP
-            // Moving the start block up prevents a big jump/discontinuity in the weights
-            //
-            // Only valid within the startBlock - endBlock period!
-            // Should not happen, but defensively check that we aren't
-            // setting the start point past the end point
-            gradualUpdate.startBlock = block.number;
-        }
-        else{
-            gradualUpdate.startBlock = startBlock;
-        }
 
         gradualUpdate.endBlock = endBlock;
         gradualUpdate.endWeights = newWeights;

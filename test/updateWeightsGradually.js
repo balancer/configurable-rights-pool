@@ -130,7 +130,7 @@ contract('updateWeightsGradually', async (accounts) => {
                 weightWETH = await controller.getDenormalizedWeight(WETH);
                 endWeights = [weightXYZ, weightWETH];
 
-                await controller.updateWeightsGradually(endWeights, startBlock, endBlock);
+                await controller.updateWeightsGradually(endWeights, startBlock, endBlock + 10);
 
                 for (i = 0; i < blockRange + 10; i++) {
                     weightXYZ = await controller.getDenormalizedWeight(XYZ);
