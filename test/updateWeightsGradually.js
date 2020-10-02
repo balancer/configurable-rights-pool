@@ -215,7 +215,7 @@ contract('updateWeightsGradually', async (accounts) => {
                             await controller.pokeWeights();
                         }
                     }
-                });    
+                }).timeout(0);    
             });
         });
     });

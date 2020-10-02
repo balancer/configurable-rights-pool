@@ -13,7 +13,7 @@ const { assert } = require('chai');
 const { time } = require('@openzeppelin/test-helpers');
 
 
-contract('configurableAddRemoveTokens', async (accounts) => {
+contract('testERC20 violations', async (accounts) => {
     const admin = accounts[0];
     const { toWei } = web3.utils;
 

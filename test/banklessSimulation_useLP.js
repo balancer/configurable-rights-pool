@@ -320,7 +320,7 @@ contract('Bankless Simulation (using LP)', async (accounts) => {
                 // Can never go below 2
                 shirtsLeft = fromWei(finalShirtBalance) > 2;
             }
-        });
+        }).timeout(0);
 
         it('Controller should recover remaining tokens and proceeds', async () => {
             const bPoolAddr = await crpPool.bPool();
